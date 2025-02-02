@@ -11,8 +11,15 @@
   "description": "",
   "dependencies": {
     "dotenv": "^16.4.7",
+    "fs-extra": "^11.3.0",
+    "ink": "^5.1.0",
+    "ora": "^8.2.0",
+    "permissionless": "^0.2.28",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
     "viem": "^2.22.17"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4"
   }
 }
