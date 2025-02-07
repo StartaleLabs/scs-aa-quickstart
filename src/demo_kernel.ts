@@ -179,19 +179,6 @@ const main = async () => {
       ],
     });
 
-    // Get gas estimations from bundler - needed?
-    const estimations = await bundlerClient.estimateUserOperationGas({
-      account: account,
-      calls: [
-        {
-          to: counterContract as Address,
-          value: BigInt(0),
-          data: callData,
-        },
-      ],
-      nonce: nonce,
-    });
-
     // Get paymaster paymasterAndData from paymaster service
     const paymasterResponse = await paymasterClient.request({
       method: "pm_getPaymasterAndData",
@@ -237,13 +224,12 @@ const main = async () => {
       { "Max fee per gas": formatEther(BigInt(userOperation.maxFeePerGas)) },
       { "Max priority fee per gas": formatEther(BigInt(userOperation.maxPriorityFeePerGas)) },
       { "Dummy signature": userOperation.signature },
-      { "Call gas limit": preSignatureUserOp.callGasLimit },
-      { "Verification gas limit": preSignatureUserOp.verificationGasLimit },
-      { "Pre verification gas": preSignatureUserOp.preVerificationGas },
+      { "Call gas limit": BigInt(preSignatureUserOp.callGasLimit) },
+      { "Verification gas limit": BigInt(preSignatureUserOp.verificationGasLimit) },
+      { "Pre verification gas": BigInt(preSignatureUserOp.preVerificationGas) },
     );
 
     console.log(userOpTable.toString());
-
     console.log("\n");
 
     spinner.start("Signing user operation");
