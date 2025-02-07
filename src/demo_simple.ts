@@ -19,7 +19,7 @@ const ENTRY_POINT_ADDRESS = process.env.ENTRY_POINT_ADDRESS as Address;
 const SIMPLE_ACCOUNT_FACTORY_ADDRESS = process.env.SIMPLE_ACCOUNT_FACTORY_ADDRESS as Address;
 const COUNTER_CONTRACT_ADDRESS = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const PAYMASTER_CONTRACT_ADDRESS = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
-const OWNER_PRIVATE_KEY = process.env.OWNER_PRIVATE_KEY as Hex;
+const OWNER_PRIVATE_KEY = process.env.OWNER_PRIVATE_KEY_DEFAULT as Hex;
 
 async function main() {
   const spinner = ora({ spinner: "bouncingBar" });
@@ -89,7 +89,7 @@ async function main() {
     // Calldata
     const callData =
       "0xb61d27f60000000000000000000000006bcf154a6b80fde9bd1556d39c9bcbb19b539bd800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000406661abd00000000000000000000000000000000000000000000000000000000" as `0x${string}`;
-    const nonce = await simpleAccount.getNonce();
+    const nonce = await simpleAccount.getNonce({ key: BigInt(3) });
     console.log("\n");
 
     spinner.start("Constructing user operation");
@@ -229,6 +229,7 @@ async function main() {
     };
 
     spinner.succeed(chalk.greenBright.bold.underline("User operation signed"));
+    console.log("\n");
     const signatureTable = new cliTable();
 
     signatureTable.push({ Signature: userOpSignature });
