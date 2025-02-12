@@ -3,15 +3,18 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "npx ts-node ./src/demo.ts"
+    "start": "npx ts-node ./src/demo_simple.ts",
+    "kernel": "npx ts-node ./src/demo_kernel.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@rhinestone/module-sdk": "^0.2.4",
     "@zerodev/ecdsa-validator": "^5.4.3",
     "@zerodev/sdk": "^5.4.18",
+    "@zerodev/weighted-ecdsa-validator": "^5.4.1",
     "chalk": "^5.4.1",
     "cli-table3": "^0.6.5",
     "dotenv": "^16.4.7",

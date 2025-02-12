@@ -12,18 +12,18 @@ import {
   encodeFunctionData,
   formatEther,
   rpcSchema,
+  toFunctionSelector,
   toHex,
 } from "viem";
+
 import {
   type EntryPointVersion,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
   type PrepareUserOperationRequest,
-  type UserOperation,
   createBundlerClient,
   createPaymasterClient,
   entryPoint07Address,
 } from "viem/account-abstraction";
+
 import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "./abi/Counter";
@@ -36,11 +36,14 @@ const bundler = process.env.BUNDLER_URL;
 const paymaster = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
-const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
+const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS as Address;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
 const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
+
+const signer1PrivateKey = process.env.SIGNER_1_PRIVATE_KEY as Hex;
+const recoveryActionAddress = process.env.RECOVERY_ACTION_ADDRESS as Address;
 
 if (!bundler || !paymaster || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -81,6 +84,7 @@ const paymasterClient = createPaymasterClient({
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
+const guardian = privateKeyToAccount(signer1PrivateKey);
 
 const entryPoint = {
   address: entryPoint07Address as Address,
@@ -106,13 +110,29 @@ const main = async () => {
       signer,
       entryPoint,
       kernelVersion,
-      validatorAddress: ECDSAValidator as Address,
+      validatorAddress: ECDSAValidator,
     });
+
+    const ecdsaValidator2 = await signerToEcdsaValidator(publicClient, {
+      signer: guardian,
+      entryPoint,
+      kernelVersion: KERNEL_V3_2,
+      validatorAddress: ECDSAValidator,
+    });
+
+    const recoveryExecutorFunction =
+      "function doRecovery(address _validator, bytes calldata _data)";
+    const recoveryExecutorSelector = toFunctionSelector(recoveryExecutorFunction);
 
     // Create Kernel account
     const account = await createKernelAccount(publicClient, {
       plugins: {
         sudo: ecdsaValidator,
+        regular: ecdsaValidator2,
+        action: {
+          address: recoveryActionAddress,
+          selector: recoveryExecutorSelector,
+        },
       },
       entryPoint,
       kernelVersion,
@@ -120,10 +140,8 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(9),
+      index: BigInt(12),
     });
-
-    const isAccountDeployed = await account.isDeployed();
 
     const accountBalanceBefore = (await publicClient.getBalance({
       address: account.address,
@@ -178,56 +196,40 @@ const main = async () => {
       ],
     });
 
-    type PaymasterResponse = {
-      paymaster: Hex;
-      paymasterData: Hex;
-      callGasLimit: Hex;
-      verificationGasLimit: Hex;
-      preVerificationGas: Hex;
-      paymasterPostOpGasLimit: Hex;
-      paymasterVerificationGasLimit: Hex;
-      maxFeePerGas: Hex;
-      maxPriorityFeePerGas: Hex;
-    };
-
-    const paymasterParams = {
-      sender: userOperation.sender,
-      nonce: userOperation.nonce,
-      factory: isAccountDeployed ? undefined : stakerFactory,
-      factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
-      callData: userOperation.callData,
-      callGasLimit: userOperation.callGasLimit,
-      verificationGasLimit: userOperation.verificationGasLimit,
-      preVerificationGas: userOperation.preVerificationGas,
-      maxFeePerGas: userOperation.maxFeePerGas,
-      maxPriorityFeePerGas: userOperation.maxPriorityFeePerGas,
-      chainId: 1946,
-      context: { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
-      entryPointAddress: entryPoint07Address,
-    };
-
-    const paymasterResponse = (await paymasterClient.getPaymasterData(
-      paymasterParams,
-    )) as any as PaymasterResponse;
-
-    console.log(paymasterResponse);
+    const initCode = await account.generateInitCode();
+    console.log("INIT CODE:", initCode);
+    // Get paymaster paymasterAndData from paymaster service
+    const paymasterResponse = await paymasterClient.request({
+      method: "pm_getPaymasterAndData",
+      params: [
+        {
+          sender: userOperation.sender,
+          nonce: userOperation.nonce,
+          initCode: await account.generateInitCode(),
+          callData: userOperation.callData,
+          signature: userOperation.signature,
+          callGasLimit: userOperation.callGasLimit,
+          verificationGasLimit: userOperation.verificationGasLimit,
+          preVerificationGas: userOperation.preVerificationGas,
+        },
+        { mode: "SPONSORED", calculateGasLimits: true },
+      ],
+    });
 
     const preSignatureUserOp = {
-      callData: userOperation.callData,
-      callGasLimit: BigInt(paymasterResponse.callGasLimit),
-      factory: isAccountDeployed ? undefined : stakerFactory,
-      factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
-      maxFeePerGas: BigInt(paymasterResponse.maxFeePerGas),
-      maxPriorityFeePerGas: BigInt(paymasterResponse.maxPriorityFeePerGas),
-      nonce: userOperation.nonce,
-      paymaster: paymasterContract,
-      paymasterData: paymasterResponse.paymasterData,
-      paymasterPostOpGasLimit: BigInt(paymasterResponse.paymasterPostOpGasLimit),
-      paymasterVerificationGasLimit: BigInt(paymasterResponse.paymasterVerificationGasLimit),
-      preVerificationGas: BigInt(paymasterResponse.preVerificationGas),
       sender: userOperation.sender,
+      nonce: userOperation.nonce,
+      callData: userOperation.callData,
+      callGasLimit: paymasterResponse.callGasLimit,
+      verificationGasLimit: paymasterResponse.verificationGasLimit,
+      preVerificationGas: paymasterResponse.preVerificationGas,
+      paymasterVerificationGasLimit: paymasterResponse.paymasterVerificationGasLimit,
+      paymasterPostOpGasLimit: paymasterResponse.paymasterPostOpGasLimit,
+      maxFeePerGas: paymasterResponse.maxFeePerGas,
+      maxPriorityFeePerGas: paymasterResponse.maxPriorityFeePerGas,
+      paymasterData: paymasterResponse.paymasterData as `0x${string}`,
+      paymaster: paymasterContract as `0x${string}`,
       signature: "0x" as `0x${string}`,
-      verificationGasLimit: BigInt(paymasterResponse.verificationGasLimit),
     };
 
     spinner.succeed(chalk.greenBright.bold.underline("User operation constructed"));
