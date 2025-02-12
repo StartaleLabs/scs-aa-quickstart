@@ -120,8 +120,10 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(7),
+      index: BigInt(9),
     });
+
+    const isAccountDeployed = await account.isDeployed();
 
     const accountBalanceBefore = (await publicClient.getBalance({
       address: account.address,
@@ -163,7 +165,6 @@ const main = async () => {
       abi: CounterAbi,
       functionName: "count",
     });
-    const nonce = await account.getNonce({ key: BigInt(7) });
 
     // Construct user operation from bundler
     const userOperation = await bundlerClient.prepareUserOperation({
@@ -189,33 +190,57 @@ const main = async () => {
       maxPriorityFeePerGas: Hex;
     };
 
-    const paymasterResponse: PaymasterResponse = await paymasterClient.request({
-      method: "pm_getPaymasterData",
-      params: [
-        {
-          sender: userOperation.sender,
-          nonce: toHex(userOperation.nonce) as `0x${string}`,
-          factory: stakerFactory,
-          factoryData: (userOperation as any).factoryData,
-          callData: userOperation.callData,
-          callGasLimit: toHex(userOperation.callGasLimit) as `0x${string}`,
-          verificationGasLimit: toHex(userOperation.verificationGasLimit) as `0x${string}`,
-          preVerificationGas: toHex(userOperation.preVerificationGas) as `0x${string}`,
-          maxFeePerGas: toHex(userOperation.maxFeePerGas) as `0x${string}`,
-          maxPriorityFeePerGas: toHex(userOperation.maxPriorityFeePerGas) as `0x${string}`,
-          // initCode: await account.generateInitCode(),
-        },
-        paymasterContract,
-        "0x79a",
-        { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
-      ],
-    });
+    const paymasterParams = {
+      sender: userOperation.sender,
+      nonce: userOperation.nonce,
+      factory: isAccountDeployed ? undefined : stakerFactory,
+      factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
+      callData: userOperation.callData,
+      callGasLimit: userOperation.callGasLimit,
+      verificationGasLimit: userOperation.verificationGasLimit,
+      preVerificationGas: userOperation.preVerificationGas,
+      maxFeePerGas: userOperation.maxFeePerGas,
+      maxPriorityFeePerGas: userOperation.maxPriorityFeePerGas,
+      chainId: 1946,
+      context: { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
+      entryPointAddress: entryPoint07Address,
+    };
+
+    const paymasterResponse = (await paymasterClient.getPaymasterData(
+      paymasterParams,
+    )) as any as PaymasterResponse;
+
+    // const paymasterParams = {
+    //   sender: userOperation.sender,
+    //   nonce: toHex(userOperation.nonce),
+    //   factory: isAccountDeployed ? undefined : stakerFactory,
+    //   factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
+    //   callData: userOperation.callData,
+    //   callGasLimit: toHex(userOperation.callGasLimit),
+    //   verificationGasLimit: toHex(userOperation.verificationGasLimit),
+    //   preVerificationGas: toHex(userOperation.preVerificationGas),
+    //   maxFeePerGas: toHex(userOperation.maxFeePerGas),
+    //   maxPriorityFeePerGas: toHex(userOperation.maxPriorityFeePerGas),
+    //   // initCode: await account.generateInitCode(),
+    // };
+
+    // const paymasterResponse: PaymasterResponse = await paymasterClient.request({
+    //   method: "pm_getPaymasterData",
+    //   params: [
+    //     paymasterParams,
+    //     paymasterContract,
+    //     "0x79a",
+    //     { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
+    //   ],
+    // });
+
+    console.log(paymasterResponse);
 
     const preSignatureUserOp = {
       callData: userOperation.callData,
       callGasLimit: BigInt(paymasterResponse.callGasLimit),
-      factory: stakerFactory,
-      factoryData: (userOperation as any).factoryData,
+      factory: isAccountDeployed ? undefined : stakerFactory,
+      factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
       maxFeePerGas: BigInt(paymasterResponse.maxFeePerGas),
       maxPriorityFeePerGas: BigInt(paymasterResponse.maxPriorityFeePerGas),
       nonce: userOperation.nonce,
