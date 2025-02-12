@@ -11,11 +11,8 @@ import {
   createPublicClient,
   encodeFunctionData,
   formatEther,
-  getContract,
-  parseEther,
   rpcSchema,
   toHex,
-  zeroAddress,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -123,6 +120,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
+      index: BigInt(7),
     });
 
     const accountBalanceBefore = (await publicClient.getBalance({
@@ -179,38 +177,56 @@ const main = async () => {
       ],
     });
 
-    // Get paymaster paymasterAndData from paymaster service
-    const paymasterResponse = await paymasterClient.request({
-      method: "pm_getPaymasterAndData",
+    type PaymasterResponse = {
+      paymaster: Hex;
+      paymasterData: Hex;
+      callGasLimit: Hex;
+      verificationGasLimit: Hex;
+      preVerificationGas: Hex;
+      paymasterPostOpGasLimit: Hex;
+      paymasterVerificationGasLimit: Hex;
+      maxFeePerGas: Hex;
+      maxPriorityFeePerGas: Hex;
+    };
+
+    const paymasterResponse: PaymasterResponse = await paymasterClient.request({
+      method: "pm_getPaymasterData",
       params: [
         {
           sender: userOperation.sender,
-          nonce: userOperation.nonce,
-          initCode: "0x",
+          nonce: toHex(userOperation.nonce) as `0x${string}`,
+          factory: stakerFactory,
+          factoryData: (userOperation as any).factoryData,
           callData: userOperation.callData,
-          signature: userOperation.signature,
-          callGasLimit: userOperation.callGasLimit,
-          verificationGasLimit: userOperation.verificationGasLimit,
-          preVerificationGas: userOperation.preVerificationGas,
+          callGasLimit: toHex(userOperation.callGasLimit) as `0x${string}`,
+          verificationGasLimit: toHex(userOperation.verificationGasLimit) as `0x${string}`,
+          preVerificationGas: toHex(userOperation.preVerificationGas) as `0x${string}`,
+          maxFeePerGas: toHex(userOperation.maxFeePerGas) as `0x${string}`,
+          maxPriorityFeePerGas: toHex(userOperation.maxPriorityFeePerGas) as `0x${string}`,
+          // initCode: await account.generateInitCode(),
         },
-        { mode: "SPONSORED", calculateGasLimits: true },
+        paymasterContract,
+        "0x79a",
+        { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
       ],
     });
 
     const preSignatureUserOp = {
-      sender: userOperation.sender,
-      nonce: userOperation.nonce,
       callData: userOperation.callData,
-      callGasLimit: paymasterResponse.callGasLimit,
-      verificationGasLimit: paymasterResponse.verificationGasLimit,
-      preVerificationGas: paymasterResponse.preVerificationGas,
-      paymasterVerificationGasLimit: paymasterResponse.paymasterVerificationGasLimit,
-      paymasterPostOpGasLimit: paymasterResponse.paymasterPostOpGasLimit,
-      maxFeePerGas: paymasterResponse.maxFeePerGas,
-      maxPriorityFeePerGas: paymasterResponse.maxPriorityFeePerGas,
-      paymasterData: paymasterResponse.paymasterData as `0x${string}`,
-      paymaster: paymasterContract as `0x${string}`,
+      callGasLimit: BigInt(paymasterResponse.callGasLimit),
+      factory: stakerFactory,
+      factoryData: (userOperation as any).factoryData,
+      maxFeePerGas: BigInt(paymasterResponse.maxFeePerGas),
+      maxPriorityFeePerGas: BigInt(paymasterResponse.maxPriorityFeePerGas),
+      nonce: userOperation.nonce,
+      paymaster: paymasterContract,
+      paymasterData: paymasterResponse.paymasterData,
+      paymasterPostOpGasLimit: BigInt(paymasterResponse.paymasterPostOpGasLimit),
+      paymasterVerificationGasLimit: BigInt(paymasterResponse.paymasterVerificationGasLimit),
+      preVerificationGas: BigInt(paymasterResponse.preVerificationGas),
+      sender: userOperation.sender,
       signature: "0x" as `0x${string}`,
+      verificationGasLimit: BigInt(paymasterResponse.verificationGasLimit),
     };
 
     spinner.succeed(chalk.greenBright.bold.underline("User operation constructed"));
