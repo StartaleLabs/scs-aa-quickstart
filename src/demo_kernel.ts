@@ -210,30 +210,6 @@ const main = async () => {
       paymasterParams,
     )) as any as PaymasterResponse;
 
-    // const paymasterParams = {
-    //   sender: userOperation.sender,
-    //   nonce: toHex(userOperation.nonce),
-    //   factory: isAccountDeployed ? undefined : stakerFactory,
-    //   factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
-    //   callData: userOperation.callData,
-    //   callGasLimit: toHex(userOperation.callGasLimit),
-    //   verificationGasLimit: toHex(userOperation.verificationGasLimit),
-    //   preVerificationGas: toHex(userOperation.preVerificationGas),
-    //   maxFeePerGas: toHex(userOperation.maxFeePerGas),
-    //   maxPriorityFeePerGas: toHex(userOperation.maxPriorityFeePerGas),
-    //   // initCode: await account.generateInitCode(),
-    // };
-
-    // const paymasterResponse: PaymasterResponse = await paymasterClient.request({
-    //   method: "pm_getPaymasterData",
-    //   params: [
-    //     paymasterParams,
-    //     paymasterContract,
-    //     "0x79a",
-    //     { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
-    //   ],
-    // });
-
     console.log(paymasterResponse);
 
     const preSignatureUserOp = {
