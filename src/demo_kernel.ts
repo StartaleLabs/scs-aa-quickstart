@@ -210,8 +210,6 @@ const main = async () => {
       paymasterParams,
     )) as any as PaymasterResponse;
 
-    console.log(paymasterResponse);
-
     const preSignatureUserOp = {
       callData: userOperation.callData,
       callGasLimit: BigInt(paymasterResponse.callGasLimit),

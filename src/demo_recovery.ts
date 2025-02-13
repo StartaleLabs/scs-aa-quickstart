@@ -1,24 +1,15 @@
 import "dotenv/config";
-import {
-  encodeValidatorNonce,
-  getAccount,
-  getOwnableValidator,
-  getSetOwnableValidatorThresholdAction,
-  getSocialRecoveryMockSignature,
-  getSocialRecoveryValidator,
-} from "@rhinestone/module-sdk";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { createKernelAccount, createKernelAccountClient } from "@zerodev/sdk";
 import { KERNEL_V3_2 } from "@zerodev/sdk/constants";
-import { createWeightedECDSAValidator } from "@zerodev/weighted-ecdsa-validator";
+
 import ora from "ora";
-import { toKernelSmartAccount } from "permissionless/accounts";
+import { erc7579Actions } from "permissionless/actions/erc7579";
 import {
   http,
   type Address,
   type Hex,
   createPublicClient,
-  encodeAbiParameters,
   encodeFunctionData,
   formatEther,
   rpcSchema,
@@ -27,54 +18,45 @@ import {
 } from "viem";
 import {
   type EntryPointVersion,
+  type PaymasterClient,
+  type PrepareUserOperationParameters,
   type PrepareUserOperationRequest,
+  type UserOperation,
   createBundlerClient,
   createPaymasterClient,
   entryPoint07Address,
 } from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "./abi/Counter";
 import { RecoveryAction as RecoveryActionAbi } from "./abi/RecoveryAction";
+
 import { SponsorshipPaymaster as PaymasterAbi } from "./abi/SponsorshipPaymaster";
+
 import cliTable = require("cli-table3");
+import { getSocialRecoveryValidator } from "@rhinestone/module-sdk";
+import { createWeightedECDSAValidator } from "@zerodev/weighted-ecdsa-validator";
 import chalk from "chalk";
+import { createSmartAccountClient } from "permissionless";
+import { toKernelSmartAccount } from "permissionless/accounts";
 
 const bundler = process.env.BUNDLER_URL;
 const paymaster = process.env.PAYMASTER_SERVICE_URL;
-const privateKey = process.env.OWNER_PRIVATE_KEY as Hex;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS as Address;
-const weightedValidator = process.env.WEIGHTED_VALIDATOR_ADDRESS as Address;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
 const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
-const signer1PrivateKey = process.env.SIGNER_1_PRIVATE_KEY as Hex;
-const signer2PrivateKey = process.env.SIGNER_2_PRIVATE_KEY as Hex;
-const recoveryActionAddress = process.env.RECOVERY_ACTION_ADDRESS as Address;
+const recoveryExecutorAddress = process.env.RECOVERY_ACTION_ADDRESS as Address;
+const weightedECDSAValidator = process.env.WEIGHTED_VALIDATOR_ADDRESS as Address;
+const privateKey = process.env.OWNER_PRIVATE_KEY;
+const signer1PrivateKey = process.env.SIGNER_1_PRIVATE_KEY;
+const signer2PrivateKey = process.env.SIGNER_2_PRIVATE_KEY;
 
 if (!bundler || !paymaster || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
-
-type PaymasterRpcSchema = [
-  {
-    Method: "pm_getPaymasterAndData";
-    Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
-    ReturnType: {
-      callGasLimit: bigint;
-      verificationGasLimit: bigint;
-      preVerificationGas: bigint;
-      paymasterVerificationGasLimit: bigint;
-      paymasterPostOpGasLimit: bigint;
-      maxFeePerGas: bigint;
-      maxPriorityFeePerGas: bigint;
-      paymasterData: string;
-      paymaster: string;
-    };
-  },
-];
 
 const chain = soneiumMinato;
 const publicClient = createPublicClient({
@@ -82,17 +64,21 @@ const publicClient = createPublicClient({
   chain,
 });
 
+const paymasterClient = createPaymasterClient({
+  transport: http(paymaster),
+});
 const bundlerClient = createBundlerClient({
   client: publicClient,
   transport: http(bundler),
+  paymaster: paymasterClient,
+  paymasterContext: { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
 });
 
-const paymasterClient = createPaymasterClient({
-  transport: http(paymaster),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
-});
 
-const signer = privateKeyToAccount(privateKey as Hex);
+const oldSigner = privateKeyToAccount(signer1PrivateKey as Hex);
+const guardian = privateKeyToAccount(signer2PrivateKey as Hex);
+const newSigner = privateKeyToAccount(privateKey as Hex);
+const recoveryExecutorFunction = "function doRecovery(address _validator, bytes calldata _data)";
 
 const entryPoint = {
   address: entryPoint07Address as Address,
@@ -102,75 +88,115 @@ const entryPoint = {
 const kernelVersion = KERNEL_V3_2;
 
 const main = async () => {
-  const oldSigner = privateKeyToAccount(signer1PrivateKey);
-  const newSigner = privateKeyToAccount(privateKey);
-  const guardian = privateKeyToAccount(signer2PrivateKey);
+  try {
+    const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
+      signer: oldSigner,
+      entryPoint,
+      kernelVersion,
+      validatorAddress: ECDSAValidator as Address,
+    });
 
-  const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
-    signer: oldSigner,
-    entryPoint,
-    kernelVersion: KERNEL_V3_2,
-    validatorAddress: ECDSAValidator,
-  });
+    const guardianValidator = await signerToEcdsaValidator(publicClient, {
+      signer: guardian,
+      entryPoint,
+      kernelVersion,
+      validatorAddress: ECDSAValidator as Address,
+    });
 
-  const ecdsaValidator2 = await signerToEcdsaValidator(publicClient, {
-    signer: newSigner,
-    entryPoint,
-    kernelVersion: KERNEL_V3_2,
-    validatorAddress: ECDSAValidator,
-  });
+    // Create Kernel account
+    // const account = await createKernelAccount(publicClient, {
+    //   entryPoint,
+    //   plugins: {
+    //     sudo: ecdsaValidator,
+    //     regular: guardianValidator,
+    //     action: {
+    //       address: recoveryExecutorAddress,
+    //       selector: toFunctionSelector("doRecovery(address, bytes)"),
+    //     },
+    //   },
+    //   kernelVersion,
+    //   factoryAddress: kernelFactory,
+    //   accountImplementationAddress: kernelImplementation,
+    //   useMetaFactory: true,
+    //   metaFactoryAddress: stakerFactory,
+    //   index: BigInt(22),
+    // });
 
-  const guardianValidator = await createWeightedECDSAValidator(publicClient, {
-    entryPoint,
-    kernelVersion: KERNEL_V3_2,
-    config: {
-      threshold: 100,
-      signers: [{ address: guardian.address, weight: 100 }],
-    },
-    signers: [guardian],
-    validatorAddress: weightedValidator,
-  });
-
-  const recoveryExecutorFunction = "function doRecovery(address _validator, bytes calldata _data)";
-  const recoveryExecutorSelector = toFunctionSelector(recoveryExecutorFunction);
-
-  const account = await createKernelAccount(publicClient, {
-    plugins: {
-      sudo: ecdsaValidator,
-      regular: ecdsaValidator2,
-      action: {
-        address: recoveryActionAddress,
-        selector: recoveryExecutorSelector,
+    const kernelAccount = await toKernelSmartAccount({
+      client: publicClient,
+      entryPoint: {
+        address: entryPoint07Address,
+        version: "0.7",
       },
-    },
-    kernelVersion,
-    entryPoint,
-    factoryAddress: kernelFactory,
-    accountImplementationAddress: kernelImplementation,
-    useMetaFactory: true,
-    metaFactoryAddress: stakerFactory,
-    index: BigInt(12),
-  });
+      owners: [oldSigner],
+      factoryAddress: kernelFactory,
+      accountLogicAddress: kernelImplementation,
+      metaFactoryAddress: stakerFactory,
+      validatorAddress: ECDSAValidator,
+      index: BigInt(22),
+      useMetaFactory: true,
+    });
 
-  console.log("Account address:", account.address);
+    const isAccountDeployed = await kernelAccount.isDeployed();
 
-  // Construct the recovery call data
-  const callData = encodeFunctionData({
-    abi: RecoveryActionAbi,
-    functionName: "doRecovery",
-    args: [ECDSAValidator, newSigner.address],
-  });
+    console.log("Account deployed: ", isAccountDeployed);
+    console.log("Account: ", kernelAccount);
 
-  const userOperation = await bundlerClient.prepareUserOperation({
-    account: account,
-    calls: [
-      {
-        to: counterContract as Address,
-        value: BigInt(0),
-        data: callData,
-      },
-    ],
-  });
+    const smartAccountClient = createSmartAccountClient({
+      account: kernelAccount,
+      chain: soneiumMinato,
+      bundlerTransport: http(bundler),
+      paymaster: paymasterClient,
+    }).extend(erc7579Actions());
+
+    const callData = encodeFunctionData({
+      abi: RecoveryActionAbi,
+      functionName: "doRecovery",
+      args: [ECDSAValidator, newSigner.address],
+    });
+
+    const socialRecovery = getSocialRecoveryValidator({
+      threshold: 1,
+      guardians: [guardian.address],
+    });
+
+    const opHash1 = await smartAccountClient.installModule(socialRecovery);
+
+    console.log("Op hash: ", opHash1);
+
+    const receipt1 = await bundlerClient.waitForUserOperationReceipt({
+      hash: opHash1,
+    });
+
+    console.log("Receipt: ", receipt1);
+
+    // // Construct call data
+    // const callData = encodeFunctionData({
+    //   abi: CounterAbi,
+    //   functionName: "count",
+    // });
+
+    // Construct user operation from bundler
+    // const userOperation = await bundlerClient.prepareUserOperation({
+    //   account: account,
+    //   calls: [
+    //     {
+    //       to: counterContract as Address,
+    //       value: BigInt(0),
+    //       data: callData,
+    //     },
+    //   ],
+    // });
+  } catch (error) {
+    console.log("Error: ", error);
+  }
+  process.exit(0);
 };
 
+function bigIntToHex(_: string, value: any) {
+  if (typeof value === "bigint") {
+    return toHex(value);
+  }
+  return value;
+}
 main();
