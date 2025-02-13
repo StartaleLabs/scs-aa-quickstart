@@ -123,7 +123,8 @@ const main = async () => {
       index: BigInt(9),
     });
 
-    const isAccountDeployed = await account.isDeployed();
+    const factoryArgs = await account.getFactoryArgs();
+    // console.log(factoryArgs);
 
     const accountBalanceBefore = (await publicClient.getBalance({
       address: account.address,
@@ -193,8 +194,8 @@ const main = async () => {
     const paymasterParams = {
       sender: userOperation.sender,
       nonce: userOperation.nonce,
-      factory: isAccountDeployed ? undefined : stakerFactory,
-      factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
+      factory: factoryArgs.factory,
+      factoryData: factoryArgs.factoryData,
       callData: userOperation.callData,
       callGasLimit: userOperation.callGasLimit,
       verificationGasLimit: userOperation.verificationGasLimit,
@@ -215,8 +216,8 @@ const main = async () => {
     const preSignatureUserOp = {
       callData: userOperation.callData,
       callGasLimit: BigInt(paymasterResponse.callGasLimit),
-      factory: isAccountDeployed ? undefined : stakerFactory,
-      factoryData: isAccountDeployed ? undefined : (userOperation as any).factoryData,
+      factory: factoryArgs.factory,
+      factoryData: factoryArgs.factoryData,
       maxFeePerGas: BigInt(paymasterResponse.maxFeePerGas),
       maxPriorityFeePerGas: BigInt(paymasterResponse.maxPriorityFeePerGas),
       nonce: userOperation.nonce,
