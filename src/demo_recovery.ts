@@ -41,7 +41,7 @@ import { createSmartAccountClient } from "permissionless";
 import { toKernelSmartAccount } from "permissionless/accounts";
 
 const bundler = process.env.BUNDLER_URL;
-const paymaster = process.env.PAYMASTER_SERVICE_URL;
+const paymaster = process.env.PAYMASTER_SERVICE_URL as Address;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS as Address;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
@@ -70,7 +70,24 @@ const paymasterClient = createPaymasterClient({
 const bundlerClient = createBundlerClient({
   client: publicClient,
   transport: http(bundler),
-  paymaster: paymasterClient,
+  paymaster: {
+    async getPaymasterData(userOperation) {
+      console.log("Called getPaymasterData: ", userOperation);
+      const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
+      return paymasterResponse;
+    },
+    async getPaymasterStubData(userOperation) {
+      console.log("Called getPaymasterStubData: ", userOperation);
+      const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
+      return {
+        ...paymasterResponse,
+        paymasterAndData: undefined,
+        paymaster,
+        paymasterData: paymasterResponse.paymasterData || "0x",
+        paymasterPostOpGasLimit: paymasterResponse.paymasterPostOpGasLimit || BigInt(4000000),
+      };
+    },
+  },
   paymasterContext: { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
 });
 
@@ -133,32 +150,26 @@ const main = async () => {
       accountLogicAddress: kernelImplementation,
       metaFactoryAddress: stakerFactory,
       validatorAddress: ECDSAValidator,
-      index: BigInt(22),
+      index: BigInt(23),
       useMetaFactory: true,
     });
 
     const isAccountDeployed = await kernelAccount.isDeployed();
 
     console.log("Account deployed: ", isAccountDeployed);
-    console.log("Account: ", kernelAccount);
 
     const smartAccountClient = createSmartAccountClient({
       account: kernelAccount,
       chain: soneiumMinato,
       bundlerTransport: http(bundler),
-      paymaster: paymasterClient,
     }).extend(erc7579Actions());
 
-    const callData = encodeFunctionData({
-      abi: RecoveryActionAbi,
-      functionName: "doRecovery",
-      args: [ECDSAValidator, newSigner.address],
-    });
 
     const socialRecovery = getSocialRecoveryValidator({
       threshold: 1,
       guardians: [guardian.address],
     });
+
 
     const opHash1 = await smartAccountClient.installModule(socialRecovery);
 
