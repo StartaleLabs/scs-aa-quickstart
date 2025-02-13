@@ -170,23 +170,6 @@ const main = async () => {
 
     console.log("Receipt: ", receipt1);
 
-    // // Construct call data
-    // const callData = encodeFunctionData({
-    //   abi: CounterAbi,
-    //   functionName: "count",
-    // });
-
-    // Construct user operation from bundler
-    // const userOperation = await bundlerClient.prepareUserOperation({
-    //   account: account,
-    //   calls: [
-    //     {
-    //       to: counterContract as Address,
-    //       value: BigInt(0),
-    //       data: callData,
-    //     },
-    //   ],
-    // });
   } catch (error) {
     console.log("Error: ", error);
   }
