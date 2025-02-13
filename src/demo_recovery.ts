@@ -18,6 +18,7 @@ import {
 } from "viem";
 import {
   type EntryPointVersion,
+  type GetPaymasterDataParameters,
   type PaymasterClient,
   type PrepareUserOperationParameters,
   type PrepareUserOperationRequest,
@@ -67,28 +68,36 @@ const publicClient = createPublicClient({
 const paymasterClient = createPaymasterClient({
   transport: http(paymaster),
 });
+
+const startalePaymaster = {
+  async getPaymasterData(userOperation: GetPaymasterDataParameters) {
+    console.log("Called getPaymasterData: ", userOperation);
+    const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
+    return paymasterResponse;
+  },
+  async getPaymasterStubData(userOperation: GetPaymasterDataParameters) {
+    console.log("Called getPaymasterStubData: ", userOperation);
+    const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
+    return {
+      ...paymasterResponse,
+      paymasterAndData: undefined,
+      paymaster,
+      paymasterData: paymasterResponse.paymasterData || "0x",
+      paymasterPostOpGasLimit: paymasterResponse.paymasterPostOpGasLimit || BigInt(4000000),
+    };
+  },
+};
+
+const startalePaymasterContext = {
+  mode: "SPONSORED",
+  calculateGasLimits: true,
+  policyId: "some-policy-id",
+};
 const bundlerClient = createBundlerClient({
   client: publicClient,
   transport: http(bundler),
-  paymaster: {
-    async getPaymasterData(userOperation) {
-      console.log("Called getPaymasterData: ", userOperation);
-      const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
-      return paymasterResponse;
-    },
-    async getPaymasterStubData(userOperation) {
-      console.log("Called getPaymasterStubData: ", userOperation);
-      const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
-      return {
-        ...paymasterResponse,
-        paymasterAndData: undefined,
-        paymaster,
-        paymasterData: paymasterResponse.paymasterData || "0x",
-        paymasterPostOpGasLimit: paymasterResponse.paymasterPostOpGasLimit || BigInt(4000000),
-      };
-    },
-  },
-  paymasterContext: { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
+  paymaster: startalePaymaster,
+  paymasterContext: startalePaymasterContext,
 });
 
 
@@ -162,6 +171,45 @@ const main = async () => {
       account: kernelAccount,
       chain: soneiumMinato,
       bundlerTransport: http(bundler),
+      paymaster: {
+        async getPaymasterData(userOperation: GetPaymasterDataParameters) {
+          console.log("Called getPaymasterData: ", userOperation);
+          const paymasterResponse = await paymasterClient.getPaymasterData(userOperation);
+          return paymasterResponse;
+        },
+        async getPaymasterStubData(userOperation: GetPaymasterDataParameters) {
+          console.log("Called getPaymasterStubData: ", userOperation);
+
+          const factoryArgs = await kernelAccount.getFactoryArgs();
+
+          const paymasterParams = {
+            sender: userOperation.sender,
+            nonce: userOperation.nonce,
+            factory: factoryArgs.factory,
+            factoryData: factoryArgs.factoryData,
+            callData: userOperation.callData,
+            callGasLimit: userOperation.callGasLimit,
+            verificationGasLimit: userOperation.verificationGasLimit,
+            preVerificationGas: userOperation.preVerificationGas,
+            maxFeePerGas: userOperation.maxFeePerGas,
+            maxPriorityFeePerGas: userOperation.maxPriorityFeePerGas,
+            chainId: 1946,
+            context: { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" },
+            entryPointAddress: entryPoint07Address,
+          };
+
+          const paymasterResponse = await paymasterClient.getPaymasterData(paymasterParams);
+
+          return {
+            ...paymasterResponse,
+            paymasterAndData: undefined,
+            paymaster,
+            paymasterData: paymasterResponse.paymasterData || "0x",
+            paymasterPostOpGasLimit: paymasterResponse.paymasterPostOpGasLimit || BigInt(4000000),
+          };
+        },
+      },
+      paymasterContext: startalePaymasterContext,
     }).extend(erc7579Actions());
 
 
