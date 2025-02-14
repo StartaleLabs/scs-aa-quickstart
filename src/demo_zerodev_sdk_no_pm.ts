@@ -28,7 +28,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "./abi/SponsorshipPaymaster
 import cliTable = require("cli-table3");
 import chalk from "chalk";
 
-const bundler = process.env.BUNDLER_URL as string;
+const bundlerUrl = process.env.BUNDLER_URL as string;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
@@ -50,7 +50,7 @@ const walletClient = createWalletClient({
 });
 const bundlerClient = createBundlerClient({
   client: publicClient,
-  transport: http(bundler),
+  transport: http(bundlerUrl),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -121,7 +121,7 @@ const main = async () => {
     spinner.succeed(chalk.greenBright.bold.underline("Smart account initialized."));
 
     tableBefore.push(
-      { "Bundler url": bundler.split("?")[0] },
+      { "Bundler url": bundlerUrl.split("?")[0] },
       { "Paymaster contract address": paymasterContract },
       { "Entry Point address": entryPoint07Address },
       { "Smart account address": account.address },

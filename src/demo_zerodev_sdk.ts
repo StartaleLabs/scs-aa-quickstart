@@ -1,3 +1,7 @@
+// Uses Only Zerodev SDK
+// Does not make Smart Account Client instance
+// Uses Smart Account instance and sends userOperation in multiple steps uses bundlerClient and paymasterClient
+
 import "dotenv/config";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { createKernelAccount } from "@zerodev/sdk";
@@ -32,8 +36,8 @@ import { SponsorshipPaymaster as PaymasterAbi } from "./abi/SponsorshipPaymaster
 import cliTable = require("cli-table3");
 import chalk from "chalk";
 
-const bundler = process.env.BUNDLER_URL;
-const paymaster = process.env.PAYMASTER_SERVICE_URL;
+const bundlerUrl = process.env.BUNDLER_URL;
+const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
@@ -42,13 +46,13 @@ const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Addres
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
 
-if (!bundler || !paymaster || !privateKey) {
+if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
 
 type PaymasterRpcSchema = [
   {
-    Method: "pm_getPaymasterAndData";
+    Method: "pm_getPaymasterData";
     Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
     ReturnType: {
       callGasLimit: bigint;
@@ -72,11 +76,11 @@ const publicClient = createPublicClient({
 
 const bundlerClient = createBundlerClient({
   client: publicClient,
-  transport: http(bundler),
+  transport: http(bundlerUrl),
 });
 
 const paymasterClient = createPaymasterClient({
-  transport: http(paymaster),
+  transport: http(paymasterUrl),
   rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
@@ -147,8 +151,8 @@ const main = async () => {
     spinner.succeed(chalk.greenBright.bold.underline("Smart account initialized."));
 
     tableBefore.push(
-      { "Bundler url": bundler.split("?")[0] },
-      { "Paymaster service url": paymaster.split("/").slice(0, 6).join("/") },
+      { "Bundler url": bundlerUrl.split("?")[0] },
+      { "Paymaster service url": paymasterUrl.split("/").slice(0, 6).join("/") },
       { "Paymaster contract address": paymasterContract },
       { "Entry Point address": entryPoint07Address },
       { "Smart account address": account.address },
@@ -160,7 +164,7 @@ const main = async () => {
     console.log(tableBefore.toString());
     console.log("\n");
 
-    spinner.start("Constructing user operation");
+    spinner.start("Constructing user operation.../n");
     // Construct call data
     const callData = encodeFunctionData({
       abi: CounterAbi,
@@ -210,6 +214,7 @@ const main = async () => {
     const paymasterResponse = (await paymasterClient.getPaymasterData(
       paymasterParams,
     )) as any as PaymasterResponse;
+    console.log("paymaster response: ", paymasterResponse);
 
     const preSignatureUserOp = {
       callData: userOperation.callData,
@@ -249,6 +254,7 @@ const main = async () => {
     console.log("\n");
 
     spinner.start("Signing user operation");
+    console.log("preSignatureUserOp: ", preSignatureUserOp);
     const userOpSignature = await account.signUserOperation(preSignatureUserOp);
 
     const signedUserOp = {
