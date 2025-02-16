@@ -202,14 +202,15 @@ const main = async () => {
           console.log("Called getPaymasterStubData: ", pmStubDataParams);
           const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
           console.log("Paymaster Stub Response: ", paymasterStubResponse);
-          return {
-            ...paymasterStubResponse,
-            paymasterAndData: undefined,
-            paymaster: paymasterContract,
-            paymasterData: paymasterStubResponse.paymasterData || "0x",
-            paymasterVerificationGasLimit: paymasterStubResponse.paymasterVerificationGasLimit || BigInt(200000),
-            paymasterPostOpGasLimit: paymasterStubResponse.paymasterPostOpGasLimit || BigInt(100000),
-          };
+          return paymasterStubResponse;
+          // return {
+          //   ...paymasterStubResponse,
+          //   paymasterAndData: undefined,
+          //   paymaster: paymasterContract,
+          //   paymasterData: paymasterStubResponse.paymasterData || "0x",
+          //   paymasterVerificationGasLimit: paymasterStubResponse.paymasterVerificationGasLimit || BigInt(200000),
+          //   paymasterPostOpGasLimit: paymasterStubResponse.paymasterPostOpGasLimit || BigInt(100000),
+          // };
         },
       },
       paymasterContext: scsContext,
