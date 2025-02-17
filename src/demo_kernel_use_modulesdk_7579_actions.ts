@@ -1,3 +1,9 @@
+// Uses module-sdk along with 7579 actions
+// Uses zerodev sdk to init kernel account and kernel client
+// Module sdk gives us certain helpers to get module objects etc
+// 7579 actions help extend the account client to make calls like isModuleInstalled and installModule
+// Next qwe explore "actions" how to get payload to trigger on the account and do it using existing instances from zerode or rhinestone sdk
+
 import "dotenv/config";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { createKernelAccount, createKernelAccountClient, getUserOperationGasPrice } from "@zerodev/sdk";
@@ -36,7 +42,7 @@ import { erc7579Actions } from "permissionless/actions/erc7579";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
-import { getSmartSessionsValidator, getSocialRecoveryValidator } from "@rhinestone/module-sdk";
+import { getAccount, getModule, getSmartSessionsValidator, getSocialRecoveryValidator, installModule, isModuleInstalled } from "@rhinestone/module-sdk";
 
 const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -99,7 +105,7 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
   
   const kernelVersion = KERNEL_V3_2;
   
-  const scsContext = { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" } 
+  const scsContext = { calculateGasLimits: true, policyId: "policy_1" } 
 
   const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -132,7 +138,7 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
         accountImplementationAddress: kernelImplementation,
         useMetaFactory: true,
         metaFactoryAddress: stakerFactory,
-        index: BigInt(127),
+        index: BigInt(107),
       });
   
       const factoryArgs = await account.getFactoryArgs();
@@ -203,7 +209,14 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
           guardians: [guardian1.address, guardian2.address],
       })
 
+      // replace address with ours
+      socialRecovery.address = AccountRecoveryValidator;
+      socialRecovery.module = AccountRecoveryValidator;
+
       console.log("Social Recovery: ", socialRecovery);
+
+      const isModuleInstalled = await kernelClient.isModuleInstalled(socialRecovery);
+      console.log("Is Module Installed: ", isModuleInstalled);
       
       const context = encodePacked(
         ['address', 'bytes'],
@@ -214,19 +227,13 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
             [socialRecovery.initData || '0x', '0x'],
           ),
         ],
-    )
+      )
 
-    // replace address
-    socialRecovery.address = AccountRecoveryValidator;
-    socialRecovery.module = AccountRecoveryValidator;
-
-    const isModuleInstalled = await kernelClient.isModuleInstalled(socialRecovery);
-
-    if (isModuleInstalled) {
+      if (isModuleInstalled) {
         console.log("Module is already installed");
         process.exit(0);
-    }
-    
+      }
+
     const opHash = await kernelClient.installModule({
         type: socialRecovery.type,
         address: AccountRecoveryValidator, // custom address override
@@ -237,9 +244,10 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
 
     const ourBundlerClient = kernelClient.extend(bundlerActions)
     
-    await ourBundlerClient.waitForUserOperationReceipt({
+    const result = await ourBundlerClient.waitForUserOperationReceipt({
         hash: opHash,
-    })    
+    })
+    console.log("Operation result: ", result.receipt.transactionHash);    
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
     }

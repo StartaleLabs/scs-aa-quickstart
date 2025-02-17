@@ -10,6 +10,8 @@ estimateFeesPerGas: async ({bundlerClient}) => {
 // hence I am returning our defined hard-coded gas price.   
 
 
+// Update: It installs account recovery and smart session modules both if not already installed.
+
 
 // Done: Send using abstracted smart account client and making sure SCS paymaster works
 
@@ -62,6 +64,8 @@ const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
 const AccountRecoveryValidator = process.env.ACCOUNT_RECOVERY_MODULE_ADDRESS as Address;
+const SmartSessionValidator = process.env.SMART_SESSIONS_MODULE_ADDRESS as Address;
+const UniActionPolicy = process.env.UNI_ACTION_POLICY_MODULE_ADDRESS as Address;
 const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
@@ -116,7 +120,7 @@ const entryPoint = {
 
 const kernelVersion = KERNEL_V3_2;
 
-const scsContext = { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" }
+const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
 
 const main = async () => {
   const spinner = ora({ spinner: "bouncingBar" });
@@ -149,7 +153,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(138),
+      index: BigInt(1556),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -266,20 +270,13 @@ const main = async () => {
         guardians: [guardian1.address, guardian2.address],
     })
 
+    // override module address with ours
+    socialRecovery.module = AccountRecoveryValidator;
+    socialRecovery.address = AccountRecoveryValidator;
+
     console.log("Social Recovery Validator: ", socialRecovery);
 
-    // const installModuleHash = await kernelClient.installModule(socialRecovery);
-    /*
-    module: {
-          address: addresses.K1Validator,
-          type: "validator",
-          data: encodePacked(["address"], [eoaAccount.address])
-        }
-    */
-    // console.log("Install Module Hash: ", installModuleHash);
-
     // Note: this is the withHook branch of _installModule API of kernel from module-sdk
-
     const initDataArg = encodePacked(
       ['address', 'bytes'],
       [
@@ -290,6 +287,8 @@ const main = async () => {
         ),
       ],
     )
+
+    // This will install by making calls object and calling sendUserOperation
 
     const calls = [
         {
@@ -325,15 +324,14 @@ const main = async () => {
       ]
     console.log("Calls: ", calls);
 
-    socialRecovery.module = AccountRecoveryValidator;
-    socialRecovery.address = AccountRecoveryValidator;
-    const isModuleInstalled = await kernelClient.isModuleInstalled(socialRecovery);
-    
+    const isAccountRecoveryModuleInstalled = await kernelClient.isModuleInstalled(socialRecovery);
+    console.log("Is Module Installed: ", isAccountRecoveryModuleInstalled);
 
-    if(!isModuleInstalled) {
+    if(!isAccountRecoveryModuleInstalled) {
 
     const installModuleUserOpHash = await kernelClient.sendUserOperation({
         callData: await kernelClient.account.encodeCalls(calls),
+        // calls: calls this also works..
     })
   
     // spinner.succeed(chalk.greenBright.bold.underline("User operation submitted to install the recovery module"));
@@ -355,11 +353,57 @@ const main = async () => {
     const isModuleInstalledNow = await kernelClient.isModuleInstalled(socialRecovery);
     console.log("Is Module Installed: ", isModuleInstalledNow);
 
-    } else 
-    {
-        console.log("Module is already installed");
-        spinner.succeed(chalk.greenBright.bold.underline("Module is already installed"));
+    } else {
+      console.log("Module is already installed");
+      spinner.succeed(chalk.greenBright.bold.underline("Module is already installed"));
     }
+
+    const smartSessions = getSmartSessionsValidator({})
+    console.log("Smart Sessions: ", smartSessions);
+
+    // Override our own addresses
+    smartSessions.address = SmartSessionValidator
+    smartSessions.module = SmartSessionValidator
+
+    const isSmartSessionsModuleInstalled = await kernelClient.isModuleInstalled(smartSessions)
+    console.log("Is Smart Sessions Module Installed: ", isSmartSessionsModuleInstalled);
+
+    if(!isSmartSessionsModuleInstalled) {
+
+    const context = encodePacked(
+      ['address', 'bytes'],
+      [
+        zeroAddress,
+        encodeAbiParameters(
+          [{ type: 'bytes' }, { type: 'bytes' }],
+          [smartSessions.initData || '0x', '0x'],
+        ),
+      ],
+    )
+
+    const opHash = await kernelClient.installModule({
+      type: smartSessions.type,
+      address: SmartSessionValidator, // custom address override
+      context: context,
+    })
+
+    console.log("Operation hash: ", opHash);
+
+    const ourBundlerClient = kernelClient.extend(bundlerActions)
+  
+    const result = await ourBundlerClient.waitForUserOperationReceipt({
+         hash: opHash,
+    })
+    console.log("Operation result: ", result.receipt.transactionHash);
+
+    spinner.succeed(chalk.greenBright.bold.underline("Smart Sessions Module installed successfully"));
+    
+    const isSmartSessionsModuleInstalledNow = await kernelClient.isModuleInstalled(smartSessions)
+    console.log("Is Smart Sessions Module Installed Now: ", isSmartSessionsModuleInstalledNow);
+  } else {
+    console.log("Module is already installed");
+    spinner.succeed(chalk.greenBright.bold.underline("Module is already installed"));
+  }
   } catch (error) {
     spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
   }
