@@ -46,6 +46,7 @@ import {
   type Policy,
   deserializePermissionAccount,
   serializePermissionAccount,
+  toPermissionValidator,
 } from "@zerodev/permissions";
 import { type SudoPolicyParams, toPolicyId } from "@zerodev/permissions/policies";
 import chalk from "chalk";
@@ -99,11 +100,6 @@ const publicClient = createPublicClient({
   chain,
 });
 
-const bundlerClient = createBundlerClient({
-  client: publicClient,
-  transport: http(bundler),
-});
-
 const paymasterClient = createPaymasterClient({
   transport: http(paymasterUrl),
   rpcSchema: rpcSchema<PaymasterRpcSchema>(),
@@ -128,7 +124,6 @@ type PaymasterRpcSchema = [
 ];
 
 const scsContext = { mode: "SPONSORED", calculateGasLimits: true, policyId: "some-policy-id" }
-
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
@@ -159,12 +154,6 @@ const main = async () => {
     const emptyAccount = addressToEmptyAccount(sessionKeyAddress);
     const emptySessionKeySigner = await toECDSASigner({ signer: emptyAccount });
 
-    console.log("\n");
-    console.log("Session account: ", emptyAccount);
-    console.log("Session signer: ", emptySessionKeySigner);
-    console.log("Sudo policy: ", sudoPolicy);
-
-
     const permissionPlugin = await toPermissionValidator(publicClient, {
       entryPoint,
       kernelVersion,
@@ -186,13 +175,12 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      // address: "0x09532ad8a0343915353C1648aaC09aA1F1F72F07",
     });
 
     console.log(sessionKeyAccount);
-    const approval = await serializePermissionAccount(sessionKeyAccount as any);
 
-    console.log(approval);
+    const approval = await serializePermissionAccount(sessionKeyAccount as any);
+    console.log("aproval ", approval);
 
     const sessionKeyApprovedAccount = await deserializePermissionAccount(
       publicClient,
@@ -208,7 +196,6 @@ const main = async () => {
 
     console.log("\n");
     console.log("Deserialised approval: ", deserialised);
-    // const smartAccClient =
 
     const callData = encodeFunctionData({
       abi: CounterAbi,
@@ -288,112 +275,4 @@ main();
 function base64ToBytes(base64: string) {
   const binString = atob(base64);
   return Uint8Array.from(binString, (m) => m.codePointAt(0) as number);
-}
-
-async function toPermissionValidator<entryPointVersion extends EntryPointVersion>(
-  client: Client,
-  {
-    signer,
-    policies,
-    entryPoint,
-    kernelVersion: _,
-    flag = PolicyFlags.FOR_ALL_VALIDATION,
-  }: PermissionPluginParams<entryPointVersion>,
-): Promise<PermissionPlugin> {
-  const chainId = await getChainId(client);
-
-  if (entryPoint.version !== "0.7") {
-    throw new Error("Only EntryPoint 0.7 is supported");
-  }
-
-  const getEnableData = async (_kernelAccountAddress?: Address): Promise<Hex> => {
-    const enableData = encodeAbiParameters(
-      [{ name: "policyAndSignerData", type: "bytes[]" }],
-      [
-        [
-          ...policies.map((policy) =>
-            concat([policy.getPolicyInfoInBytes(), policy.getPolicyData()]),
-          ),
-          concat([flag, signer.signerContractAddress, signer.getSignerData()]),
-        ],
-      ],
-    );
-    return enableData;
-  };
-
-  const getPermissionId = (): Hex => {
-    const pIdData = encodeAbiParameters(
-      [{ name: "policyAndSignerData", type: "bytes[]" }],
-      [[toPolicyId(policies), flag, toSignerId(signer)]],
-    );
-    return slice(keccak256(pIdData), 0, 4);
-  };
-
-  console.log("AAAAA", signer, { ...signer.account });
-  return {
-    ...signer.account,
-    supportedKernelVersions: ">=0.3.0",
-    validatorType: "PERMISSION",
-    address: zeroAddress,
-    source: "PermissionValidator",
-    getEnableData,
-    getIdentifier: getPermissionId,
-
-    signMessage: async ({ message }) => {
-      return concat(["0xff", await signer.account.signMessage({ message })]);
-    },
-    signTypedData: async (typedData) => {
-      return concat(["0xff", await signer.account.signTypedData(typedData)]);
-    },
-
-    signUserOperation: async (userOperation): Promise<Hex> => {
-      const userOpHash = getUserOperationHash({
-        userOperation: {
-          ...userOperation,
-          signature: "0x",
-        } as UserOperation<entryPointVersion>,
-        entryPointAddress: entryPoint.address,
-        entryPointVersion: entryPoint.version,
-        chainId,
-      });
-
-      const signature = await signer.account.signMessage({
-        message: { raw: userOpHash },
-      });
-      return concat(["0xff", signature]);
-    },
-
-    async getNonceKey(_accountAddress?: Address, customNonceKey?: bigint) {
-      if (customNonceKey) {
-        return customNonceKey;
-      }
-      return BigInt(0);
-    },
-
-    async getStubSignature(_userOperation) {
-      return concat(["0xff", signer.getDummySignature()]);
-    },
-    getPluginSerializationParams: (): PermissionData => {
-      return {
-        policies,
-      };
-    },
-    isEnabled: async (kernelAccountAddress: Address, _selector: Hex): Promise<boolean> => {
-      try {
-        const permissionConfig = await getAction(
-          client,
-          readContract,
-          "readContract",
-        )({
-          abi: KernelV3AccountAbi,
-          address: kernelAccountAddress,
-          functionName: "permissionConfig",
-          args: [getPermissionId()],
-        });
-        return permissionConfig.signer === signer.signerContractAddress;
-      } catch (error) {
-        return false;
-      }
-    },
-  };
 }
