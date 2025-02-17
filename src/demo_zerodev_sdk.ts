@@ -124,11 +124,11 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(9),
+      index: BigInt(55),
     });
 
     const factoryArgs = await account.getFactoryArgs();
-    // console.log(factoryArgs);
+    console.log(factoryArgs);
 
     const accountBalanceBefore = (await publicClient.getBalance({
       address: account.address,

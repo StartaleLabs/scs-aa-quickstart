@@ -28,6 +28,9 @@ import {
   formatEther,
   rpcSchema,
   toHex,
+  encodePacked,
+  zeroAddress,
+  encodeAbiParameters,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -44,7 +47,6 @@ import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "./abi/Counter";
 import { SponsorshipPaymaster as PaymasterAbi } from "./abi/SponsorshipPaymaster";
-// I could import this from module-sdk as well!
 import { erc7579Actions } from "permissionless/actions/erc7579";
 import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
@@ -146,7 +148,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(9),
+      index: BigInt(177),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -202,15 +204,15 @@ const main = async () => {
           console.log("Called getPaymasterStubData: ", pmStubDataParams);
           const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
           console.log("Paymaster Stub Response: ", paymasterStubResponse);
-          return paymasterStubResponse;
-          // return {
-          //   ...paymasterStubResponse,
-          //   paymasterAndData: undefined,
-          //   paymaster: paymasterContract,
-          //   paymasterData: paymasterStubResponse.paymasterData || "0x",
-          //   paymasterVerificationGasLimit: paymasterStubResponse.paymasterVerificationGasLimit || BigInt(200000),
-          //   paymasterPostOpGasLimit: paymasterStubResponse.paymasterPostOpGasLimit || BigInt(100000),
-          // };
+          // return paymasterStubResponse;
+          return {
+            ...paymasterStubResponse,
+            paymasterAndData: undefined,
+            paymaster: paymasterContract,
+            paymasterData: paymasterStubResponse.paymasterData || "0x",
+            paymasterVerificationGasLimit: paymasterStubResponse.paymasterVerificationGasLimit || BigInt(200000),
+            paymasterPostOpGasLimit: paymasterStubResponse.paymasterPostOpGasLimit || BigInt(100000),
+          };
         },
       },
       paymasterContext: scsContext,
@@ -266,7 +268,27 @@ const main = async () => {
     console.log("Social Recovery Validator: ", socialRecovery);
 
     // const installModuleHash = await kernelClient.installModule(socialRecovery);
+    /*
+    module: {
+          address: addresses.K1Validator,
+          type: "validator",
+          data: encodePacked(["address"], [eoaAccount.address])
+        }
+    */
     // console.log("Install Module Hash: ", installModuleHash);
+
+    // Note: this is the withHook branch of _installModule API of kernel from module-sdk
+
+    const initDataArg = encodePacked(
+      ['address', 'bytes'],
+      [
+        zeroAddress,
+        encodeAbiParameters(
+          [{ type: 'bytes' }, { type: 'bytes' }],
+          [socialRecovery.initData || '0x', '0x'],
+        ),
+      ],
+    )
 
     const calls = [
         {
@@ -296,7 +318,7 @@ const main = async () => {
               }
             ],
             functionName: "installModule",
-            args: [BigInt(1), AccountRecoveryValidator, socialRecovery.initData]
+            args: [BigInt(1), AccountRecoveryValidator, initDataArg]
           })
         }
       ]
@@ -309,9 +331,9 @@ const main = async () => {
         callData: await kernelClient.account.encodeCalls(calls),
     })
   
-    spinner.succeed(chalk.greenBright.bold.underline("User operation submitted to install the recovery module"));
-    console.log("\n");
-    spinner.start("Waiting for user operation to be included in a block");
+    // spinner.succeed(chalk.greenBright.bold.underline("User operation submitted to install the recovery module"));
+    // console.log("\n");
+    // spinner.start("Waiting for user operation to be included in a block");
 
     const receiptNew = await kernelClient.waitForUserOperationReceipt({
         hash: installModuleUserOpHash,
@@ -319,8 +341,10 @@ const main = async () => {
       // console.log("User operation included", receipt);
     console.log("transaction hash: ", receiptNew.receipt.transactionHash);
 
-    // const isModuleInstalled = await kernelClient.isModuleInstalled(socialRecovery);
-    // console.log("Is Module Installed: ", isModuleInstalled);
+    // Todo: wait for receipt to be mined.
+
+    const isModuleInstalledNow = await kernelClient.isModuleInstalled(socialRecovery);
+    console.log("Is Module Installed: ", isModuleInstalledNow);
 
   } catch (error) {
     spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
