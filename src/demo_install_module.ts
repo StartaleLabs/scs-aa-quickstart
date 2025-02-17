@@ -39,6 +39,7 @@ import {
   type PrepareUserOperationParameters,
   type PrepareUserOperationRequest,
   type UserOperation,
+  bundlerActions,
   createBundlerClient,
   createPaymasterClient,
   entryPoint07Address,
@@ -148,7 +149,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(177),
+      index: BigInt(138),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -324,8 +325,12 @@ const main = async () => {
       ]
     console.log("Calls: ", calls);
 
+    socialRecovery.module = AccountRecoveryValidator;
+    socialRecovery.address = AccountRecoveryValidator;
     const isModuleInstalled = await kernelClient.isModuleInstalled(socialRecovery);
-    console.log("Is Module Installed: ", isModuleInstalled);
+    
+
+    if(!isModuleInstalled) {
 
     const installModuleUserOpHash = await kernelClient.sendUserOperation({
         callData: await kernelClient.account.encodeCalls(calls),
@@ -341,11 +346,20 @@ const main = async () => {
       // console.log("User operation included", receipt);
     console.log("transaction hash: ", receiptNew.receipt.transactionHash);
 
-    // Todo: wait for receipt to be mined.
+    const ourBundlerClient = kernelClient.extend(bundlerActions);
+
+    const result = await ourBundlerClient.waitForUserOperationReceipt({ hash: installModuleUserOpHash });
+
+    spinner.succeed(chalk.greenBright.bold.underline("Module installed successfully"));
 
     const isModuleInstalledNow = await kernelClient.isModuleInstalled(socialRecovery);
     console.log("Is Module Installed: ", isModuleInstalledNow);
 
+    } else 
+    {
+        console.log("Module is already installed");
+        spinner.succeed(chalk.greenBright.bold.underline("Module is already installed"));
+    }
   } catch (error) {
     spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
   }
