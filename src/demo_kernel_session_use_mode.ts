@@ -17,6 +17,7 @@ import {
   zeroAddress,
   encodeAbiParameters,
   toBytes,
+  pad,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -39,7 +40,10 @@ import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
-import { encodeValidationData, getAccount, getEnableSessionDetails, getSmartSessionsValidator, getSudoPolicy, OWNABLE_VALIDATOR_ADDRESS, Session } from "@rhinestone/module-sdk";
+import { encodeSmartSessionSignature, encodeValidationData, encodeValidatorNonce, getAccount, getEnableSessionDetails, getOwnableValidator, getOwnableValidatorMockSignature, getOwnableValidatorOwners, getPermissionId, getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction, MOCK_ATTESTER_ADDRESS, OWNABLE_VALIDATOR_ADDRESS, RHINESTONE_ATTESTER_ADDRESS, Session, SMART_SESSIONS_ADDRESS, SmartSessionMode } from "@rhinestone/module-sdk";
+import { OwnableValidatorAbi } from "./abi/OwnableValidator";
+import { enableingSessionsAbi, enableSessionAbi, installSmartSessionsAbi } from "./abi/SmartSessionAbi";
+import { getAccountNonce } from "@zerodev/sdk/actions";
 
 const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -47,8 +51,9 @@ const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
-const SmartSessionValidator = process.env.SMART_SESSIONS_MODULE_ADDRESS as Address;
 const UniActionPolicy = process.env.UNI_ACTION_POLICY_MODULE_ADDRESS as Address;
+const SmartSessionValidator = process.env.SMART_SESSIONS_MODULE_ADDRESS as Address;
+const OwnableValidator = process.env.OWNABLE_VALIDATOR_ADDRESS as Address;
 const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
@@ -100,7 +105,7 @@ const entryPoint = {
 
 const kernelVersion = KERNEL_V3_2;
 
-const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
+const scsContext = { calculateGasLimits: false, policyId: "policy_1" }
 
 const main = async () => {
   const spinner = ora({ spinner: "bouncingBar" });
@@ -133,7 +138,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(1456),
+      index: BigInt(3166),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -237,7 +242,7 @@ const main = async () => {
 
     const opHash = await kernelClient.installModule({
       type: smartSessions.type,
-      address: SmartSessionValidator, // custom address override
+      address: SmartSessionValidator,
       context: context,
     })
 
@@ -258,14 +263,86 @@ const main = async () => {
     spinner.succeed(chalk.greenBright.bold.underline("Module is already installed"));
   }
 
-  // Now that the smart session is installed..
+  const kernelAccountForModuleSdk = getAccount({
+    address: account.address,
+    type: 'kernel',
+  })
+
+  const trustAttestersAction = getTrustAttestersAction({
+    threshold: 1,
+    attesters: [
+      RHINESTONE_ATTESTER_ADDRESS, // Rhinestone Attester
+      MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
+    ],
+  });
+
+  const userOpHash1 = await kernelClient.sendUserOperation({
+    account: account,
+    calls: [
+      {
+        to: trustAttestersAction.target,
+        value: BigInt(0),
+        data: trustAttestersAction.callData,
+      },
+    ],
+  });
+
+  const receipt1 = await bundlerClient.waitForUserOperationReceipt({
+    hash: userOpHash1,
+  });
+
+  console.log("User Operation hash: ", receipt1.receipt.transactionHash);
+  spinner.succeed(chalk.greenBright.bold.underline("Trust Attesters action executed successfully"));
+
+  // Followed below as well
+  // https://docs.rhinestone.wtf/module-registry/usage/mock-attestation
+
+
+  // Install Ownable Validator
+
+  const ownableValidator = getOwnableValidator({
+    owners: [signer.address],
+    threshold: 1,
+    hook: zeroAddress,
+  });
+
+  ownableValidator.address = OwnableValidator
+  ownableValidator.module = OwnableValidator
+
+  ownableValidator.initData = encodePacked(
+    ["address", "bytes"],
+    [
+      zeroAddress,
+      encodeAbiParameters(
+        [{ type: "bytes" }, { type: "bytes" }],
+        [ownableValidator.initData, "0x"],
+      ),
+    ],
+  );
+
+  console.log("Ownable Validator: ", ownableValidator);
+
+  const opHashInstallOwnableVal = await kernelClient.installModule(ownableValidator);
+  console.log("Operation hash: ", opHashInstallOwnableVal);
+  const result1 = await bundlerClient.waitForUserOperationReceipt({hash: opHashInstallOwnableVal});
+  console.log("Operation result to install ownableValidator: ", result1.receipt.transactionHash);
+  spinner.succeed(chalk.greenBright.bold.underline("Ownable Validator installed successfully"));
+
+  const owners = (await publicClient.readContract({
+    address: OwnableValidator,
+    abi: OwnableValidatorAbi,
+    functionName: 'getOwners',
+    args: [account.address],
+  })) as Address[]
+   console.log("All Owners: ", owners);
+
+  // Now that the smart session is installed and account has trusted attesters..
 
   // Note: Can keep fixed session owner
   const sessionOwner = privateKeyToAccount(generatePrivateKey())
 
-
   const session: Session = {
-    sessionValidator: OWNABLE_VALIDATOR_ADDRESS,
+    sessionValidator: OwnableValidator,
     sessionValidatorInitData: encodeValidationData({
       threshold: 1,
       owners: [sessionOwner.address],
@@ -278,7 +355,7 @@ const main = async () => {
     },
     actions: [
       {
-        actionTarget: '0x6bcf154A6B80fDE9bd1556d39C9bCbB19B539Bd8' as Address, // an address as the target of the session execution
+        actionTarget: counterContract, // an address as the target of the session execution
         actionTargetSelector: '0xf7210633' as Hex, // function selector to be used in the execution, in this case counters() // cast sig "counters()" to hex
         actionPolicies: [getSudoPolicy()],
       },
@@ -289,21 +366,103 @@ const main = async () => {
 
   console.log("Session: ", session)
 
-  const kernelAccountForModuleSdk = getAccount({
-    address: account.address,
-    type: 'kernel',
+  const sessions: Session[] = [session]
+
+  const preparePermissionData = encodeFunctionData({
+    abi: enableingSessionsAbi,
+    functionName: "enableSessions",
+    args: [sessions]
   })
 
-  // Best to use Rhinestone's deployed address
-  // Todo: Check biconomy's latest on dx improvements for session keys
+  console.log("Prepare Permission Data: ", preparePermissionData)
 
-//   const sessionDetails = await getEnableSessionDetails({
-//     sessions: [session],
-//     account: kernelAccountForModuleSdk,
-//     clients: [publicClient as any],
-//   })
+  const permissionId = getPermissionId({
+    session
+  })
 
-//   console.log("Session Details: ", sessionDetails)
+  // return {
+  //   action: {
+  //     target: SMART_SESSIONS_ADDRESS,
+  //     value: BigInt(0),
+  //     callData: preparePermissionData
+  //   },
+  //   permissionIds: permissionIds,
+  //   sessions
+  // }
+
+  const userOpHashEnableSession = await kernelClient.sendUserOperation({
+    account: account,
+    calls: [
+      {
+        to: SmartSessionValidator,
+        value: BigInt(0),
+        data: preparePermissionData,
+      },
+    ],
+  });
+
+  const receipt2 = await bundlerClient.waitForUserOperationReceipt({
+    hash: userOpHashEnableSession,
+  });
+  console.log("User Operation hash to enable session: ", receipt2.receipt.transactionHash);
+  spinner.succeed(chalk.greenBright.bold.underline("Session enabled successfully"));
+
+  // Now let's use it.. with session key signature.
+
+
+  const nonce = await getAccountNonce(publicClient, {
+    address: account.address,
+    entryPointAddress: entryPoint07Address,
+    // key: BigInt(
+    //   pad(
+    //     encodePacked(
+    //       ["bytes1", "bytes1", "address"],
+    //       ["0x00", "0x01", SmartSessionValidator],
+    //     ),
+    //     {
+    //       dir: "right",
+    //       size: 24,
+    //     },
+    //   ),
+    // ),
+    key: encodeValidatorNonce({
+      account: kernelAccountForModuleSdk,
+      validator: smartSessions,
+    })
+  });
+
+  const mockSig = getOwnableValidatorMockSignature({
+    threshold: 1,
+  });
+
+  console.log("permissionId: ", permissionId);
+
+  const dummySigEncoded = encodePacked(
+    ['bytes1', 'bytes32', 'bytes'],
+    [SmartSessionMode.USE, permissionId, mockSig],
+  );
+
+  const userOperation = await kernelClient.prepareUserOperation({
+    account: account,
+    calls: [
+      {
+        to: session.actions[0].actionTarget,
+        value: BigInt(0),
+        data: session.actions[0].actionTargetSelector,
+      },
+    ],
+    // verificationGasLimit: BigInt(200000),
+    // postOpGasLimit: BigInt(100000),
+    // maxFeePerGas: BigInt(10000000),
+    // callGasLimit: BigInt(10000000),
+    // preVerificationGas: BigInt(100000000),
+    // paymasterVerificationGasLimit: BigInt(200000),
+    nonce,
+    signature: dummySigEncoded,
+  });
+
+  console.log("User Operation: ", userOperation);
+
   } catch (error) {
     spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
   }

@@ -89,7 +89,7 @@ export const installSmartSessionsAbi = [
     },
   ]
   
-  export const enableSessionAbi = {
+  export const enableSessionAbi = [{
     components: [
       {
         type: 'uint8',
@@ -207,14 +207,14 @@ export const installSmartSessionsAbi = [
     internalType: 'struct EnableSession',
     name: 'enableSession',
     type: 'tuple',
-  } 
+  }]
   
   export const encodeEnableSessionSignatureAbi = [
     enableSessionAbi,
     { type: 'bytes' },
   ] 
   
-  export const abi = [
+  export const enableingSessionsAbi = [
     {
       type: 'function',
       name: 'areActionsEnabled',
