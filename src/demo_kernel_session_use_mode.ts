@@ -18,6 +18,7 @@ import {
   encodeAbiParameters,
   toBytes,
   pad,
+  concatHex,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -30,6 +31,7 @@ import {
   createBundlerClient,
   createPaymasterClient,
   entryPoint07Address,
+  getUserOperationHash,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
@@ -138,7 +140,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(3166),
+      index: BigInt(77777777),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -234,8 +236,8 @@ const main = async () => {
       [
         zeroAddress,
         encodeAbiParameters(
-          [{ type: 'bytes' }, { type: 'bytes' }],
-          [smartSessions.initData || '0x', '0x'],
+          [{ type: 'bytes' }, { type: 'bytes' }, { type: 'bytes' }],
+          [smartSessions.initData || '0x', '0x', "0xe9ae5c53"],
         ),
       ],
     )
@@ -356,7 +358,7 @@ const main = async () => {
     actions: [
       {
         actionTarget: counterContract, // an address as the target of the session execution
-        actionTargetSelector: '0xf7210633' as Hex, // function selector to be used in the execution, in this case counters() // cast sig "counters()" to hex
+        actionTargetSelector: '0x06661abd' as Hex, // function selector to be used in the execution, in this case counters() // cast sig "counters()" to hex
         actionPolicies: [getSudoPolicy()],
       },
     ],
@@ -410,30 +412,27 @@ const main = async () => {
   // Now let's use it.. with session key signature.
 
 
+  console.log("account address: ", account.address);
+
+  const nonceKey = encodeValidatorNonceKey({
+    validator: SmartSessionValidator,
+  })
+
+  console.log("nonceKey: ", toHex(nonceKey));
+
   const nonce = await getAccountNonce(publicClient, {
     address: account.address,
     entryPointAddress: entryPoint07Address,
-    // key: BigInt(
-    //   pad(
-    //     encodePacked(
-    //       ["bytes1", "bytes1", "address"],
-    //       ["0x00", "0x01", SmartSessionValidator],
-    //     ),
-    //     {
-    //       dir: "right",
-    //       size: 24,
-    //     },
-    //   ),
-    // ),
-    key: encodeValidatorNonce({
-      account: kernelAccountForModuleSdk,
-      validator: smartSessions,
-    })
+    key: nonceKey
   });
+
+  console.log("Nonce Hex: ", toHex(nonce));
 
   const mockSig = getOwnableValidatorMockSignature({
     threshold: 1,
   });
+
+  console.log("mockSig: ", mockSig);
 
   console.log("permissionId: ", permissionId);
 
@@ -463,11 +462,106 @@ const main = async () => {
 
   console.log("User Operation: ", userOperation);
 
+  const userOpHashToSign = getUserOperationHash({
+    chainId: chain.id,
+    entryPointAddress: entryPoint07Address,
+    entryPointVersion: "0.7",
+    userOperation,
+  });
+
+  console.log("User Operation hash to sign: ", userOpHashToSign);
+
+  const sessionKeySignature = await sessionOwner.signMessage({
+    message: { raw: userOpHashToSign },
+  });
+
+  console.log("Session Key Signature: ", sessionKeySignature);
+
+  const userOpSignature = encodePacked(
+    ['bytes1', 'bytes32', 'bytes'],
+    [SmartSessionMode.USE, permissionId, sessionKeySignature],
+  );
+
+  console.log("User Operation Signature: ", userOpSignature);
+
+  userOperation.signature = userOpSignature;
+
+  const finalOpHash = await kernelClient.sendUserOperation(userOperation as any);
+
+  const receiptFinal = await bundlerClient.waitForUserOperationReceipt({
+    hash: finalOpHash,
+  });
+
+  console.log("User Operation hash to execute session: ", receiptFinal.receipt.transactionHash);
+  spinner.succeed(chalk.greenBright.bold.underline("Session executed successfully"));
+
+
+  const counterStateAfter = (await publicClient.readContract({
+    address: counterContract,
+    abi: CounterAbi,
+    functionName: "counters",
+    args: [account.address],
+  })) as bigint;
+
+  console.log("Counter state after session execution: ", counterStateAfter);
+
+  tableBefore.push(
+    { "Counter state after": counterStateAfter.toString() },
+  );
+  console.log(tableBefore.toString());
+  console.log("\n");
   } catch (error) {
     spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
   }
   process.exit(0);
 };
+
+export const encodeValidatorNonceKey = ({
+  validator,
+  nonceKey = 0, // Default 0 as in Solidity test
+}: {
+  validator: Hex; // 20-byte Ethereum address
+  nonceKey?: number; // 16-bit nonce key
+}) => {
+  return BigInt(
+    pad(
+      encodePacked(
+        ["bytes1", "bytes1", "address", "uint16"],
+        ["0x00", "0x01", validator, nonceKey],
+      ),
+      {
+        dir: "right",
+        size: 24,
+      },
+    ),
+  );
+
+  // ValidationType constant VALIDATION_TYPE_VALIDATOR = ValidationType.wrap(0x01);
+  // ValidationMode constant VALIDATION_MODE_DEFAULT = ValidationMode.wrap(0x00);
+
+  // const validatorMode = "0x00";
+  // const validationType = "0x01";
+
+  // const encoding = pad(
+  //   concatHex([
+  //       pad(validatorMode, {size: 1}), // 1 byte
+  //       pad(validationType, {size: 1}), // 1 byte
+  //       pad(validator, {
+  //           size: 20,
+  //           dir: "right"
+  //       }), // 20 bytes
+  //       pad(
+  //           toHex(BigInt(0)),
+  //           {
+  //               size: 2
+  //           }
+  //       ) // 2 byte
+  //   ]),
+  //   { size: 24 }
+  // );
+  // const encodedNonceKey = BigInt(encoding);
+  // return encodedNonceKey;
+}
 
 function bigIntToHex(_: string, value: any) {
   if (typeof value === "bigint") {
