@@ -222,6 +222,7 @@ const main = async () => {
     const smartSessions = getSmartSessionsValidator({})
     console.log("Smart Sessions: ", smartSessions);
 
+    // Todo: make this work with module-sdk addresses of smart session validator and ownable validator
     // Override our own addresses
     smartSessions.address = SmartSessionValidator
     smartSessions.module = SmartSessionValidator
@@ -231,6 +232,7 @@ const main = async () => {
 
     if(!isSmartSessionsModuleInstalled) {
 
+    // Todo: verify if registering a selector is needed with USE mode as well.  
     const context = encodePacked(
       ['address', 'bytes'],
       [
@@ -358,7 +360,7 @@ const main = async () => {
     actions: [
       {
         actionTarget: counterContract, // an address as the target of the session execution
-        actionTargetSelector: '0x06661abd' as Hex, // function selector to be used in the execution, in this case counters() // cast sig "counters()" to hex
+        actionTargetSelector: '0x06661abd' as Hex, // function selector to be used in the execution, in this case count() // cast sig "count()" to hex
         actionPolicies: [getSudoPolicy()],
       },
     ],
