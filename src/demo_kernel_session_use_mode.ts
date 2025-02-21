@@ -54,8 +54,8 @@ const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
 const UniActionPolicy = process.env.UNI_ACTION_POLICY_MODULE_ADDRESS as Address;
-const SmartSessionValidator = process.env.SMART_SESSIONS_MODULE_ADDRESS as Address;
-const OwnableValidator = process.env.OWNABLE_VALIDATOR_ADDRESS as Address;
+// const SmartSessionValidator = process.env.SMART_SESSIONS_MODULE_ADDRESS as Address;
+// const OwnableValidator = process.env.OWNABLE_VALIDATOR_ADDRESS as Address;
 const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
@@ -140,7 +140,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(77777777),
+      index: BigInt(7777777777777777),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -222,17 +222,19 @@ const main = async () => {
     const smartSessions = getSmartSessionsValidator({})
     console.log("Smart Sessions: ", smartSessions);
 
-    // Todo: make this work with module-sdk addresses of smart session validator and ownable validator
+    // make this work with module-sdk addresses of smart session validator and ownable validator
+    
     // Override our own addresses
-    smartSessions.address = SmartSessionValidator
-    smartSessions.module = SmartSessionValidator
+    // smartSessions.address = SmartSessionValidator
+    // smartSessions.module = SmartSessionValidator
 
     const isSmartSessionsModuleInstalled = await kernelClient.isModuleInstalled(smartSessions)
     console.log("Is Smart Sessions Module Installed: ", isSmartSessionsModuleInstalled);
 
     if(!isSmartSessionsModuleInstalled) {
 
-    // Todo: verify if registering a selector is needed with USE mode as well.  
+    // Verify if registering a selector is needed with USE mode as well.  
+    // Edit: Yes. It is needed. As we are using USE mode, we need to register the selector as well
     const context = encodePacked(
       ['address', 'bytes'],
       [
@@ -246,7 +248,7 @@ const main = async () => {
 
     const opHash = await kernelClient.installModule({
       type: smartSessions.type,
-      address: SmartSessionValidator,
+      address: smartSessions.address,
       context: context,
     })
 
@@ -280,6 +282,12 @@ const main = async () => {
     ],
   });
 
+  // Trust attestors is not required when we use our custom addressses
+  // SMART_SESSIONS_MODULE_ADDRESS=0x716BC27e1b904331C58891cC3AB13889127189a7
+  // OWNABLE_VALIDATOR_ADDRESS=0x7C5F70297f194800D8cE49F87a6b29f8d88f38Ad
+
+  // But is required when we use Rhinestone addresses in production
+
   const userOpHash1 = await kernelClient.sendUserOperation({
     account: account,
     calls: [
@@ -300,53 +308,17 @@ const main = async () => {
 
   // Followed below as well
   // https://docs.rhinestone.wtf/module-registry/usage/mock-attestation
+  // For rhinestone addresses it is already done.
 
 
-  // Install Ownable Validator
+  // Installing Ownable validator is not required.
 
-  const ownableValidator = getOwnableValidator({
-    owners: [signer.address],
-    threshold: 1,
-    hook: zeroAddress,
-  });
-
-  ownableValidator.address = OwnableValidator
-  ownableValidator.module = OwnableValidator
-
-  ownableValidator.initData = encodePacked(
-    ["address", "bytes"],
-    [
-      zeroAddress,
-      encodeAbiParameters(
-        [{ type: "bytes" }, { type: "bytes" }],
-        [ownableValidator.initData, "0x"],
-      ),
-    ],
-  );
-
-  console.log("Ownable Validator: ", ownableValidator);
-
-  const opHashInstallOwnableVal = await kernelClient.installModule(ownableValidator);
-  console.log("Operation hash: ", opHashInstallOwnableVal);
-  const result1 = await bundlerClient.waitForUserOperationReceipt({hash: opHashInstallOwnableVal});
-  console.log("Operation result to install ownableValidator: ", result1.receipt.transactionHash);
-  spinner.succeed(chalk.greenBright.bold.underline("Ownable Validator installed successfully"));
-
-  const owners = (await publicClient.readContract({
-    address: OwnableValidator,
-    abi: OwnableValidatorAbi,
-    functionName: 'getOwners',
-    args: [account.address],
-  })) as Address[]
-   console.log("All Owners: ", owners);
-
-  // Now that the smart session is installed and account has trusted attesters..
 
   // Note: Can keep fixed session owner
   const sessionOwner = privateKeyToAccount(generatePrivateKey())
 
   const session: Session = {
-    sessionValidator: OwnableValidator,
+    sessionValidator: OWNABLE_VALIDATOR_ADDRESS,
     sessionValidatorInitData: encodeValidationData({
       threshold: 1,
       owners: [sessionOwner.address],
@@ -398,7 +370,7 @@ const main = async () => {
     account: account,
     calls: [
       {
-        to: SmartSessionValidator,
+        to: smartSessions.address,
         value: BigInt(0),
         data: preparePermissionData,
       },
@@ -417,7 +389,7 @@ const main = async () => {
   console.log("account address: ", account.address);
 
   const nonceKey = encodeValidatorNonceKey({
-    validator: SmartSessionValidator,
+    validator: SMART_SESSIONS_ADDRESS,
   })
 
   console.log("nonceKey: ", toHex(nonceKey));
