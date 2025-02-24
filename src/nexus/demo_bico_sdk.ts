@@ -18,6 +18,7 @@ import {
   toBytes,
   pad,
   concatHex,
+  parseEther,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -131,10 +132,56 @@ const main = async () => {
           transport: http(),
         }),
         transport: http(bundlerUrl),
+        client: publicClient,
+        // paymaster: {
+        //     async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
+        //       console.log("Called getPaymasterData: ", pmDataParams);
+        //       const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
+        //       console.log("Paymaster Response: ", paymasterResponse);
+        //       return paymasterResponse;
+        //     },
+        //     async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
+        //       console.log("Called getPaymasterStubData: ", pmStubDataParams);
+        //       const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
+        //       console.log("Paymaster Stub Response: ", paymasterStubResponse);
+        //       // return paymasterStubResponse;
+        //       return {
+        //         ...paymasterStubResponse,
+        //         paymasterAndData: undefined,
+        //         paymaster: paymasterContract,
+        //         paymasterData: paymasterStubResponse.paymasterData || "0x",
+        //         paymasterVerificationGasLimit: paymasterStubResponse.paymasterVerificationGasLimit || BigInt(200000),
+        //         paymasterPostOpGasLimit: paymasterStubResponse.paymasterPostOpGasLimit || BigInt(100000),
+        //       };
+        //     },
+        //   },
+        //   paymasterContext: scsContext,
+
+        // Note: Otherise makes a call to 'biconomy_getGasFeeValues' endpoint
+          userOperation: {
+            estimateFeesPerGas: async ({bundlerClient}) => {
+              return {
+                maxFeePerGas: BigInt(10000000),
+                maxPriorityFeePerGas: BigInt(10000000)
+            }
+            }
+          }
       })
 
       const address = nexusClient.account.address;
       console.log("address", address);
+
+      // Blocker: Getting AA13 at this point
+      const hash = await nexusClient.sendUserOperation({ 
+        calls: [ 
+          { 
+            to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37', 
+            value: parseEther('0.001'), 
+          }, 
+        ], 
+      }); 
+      const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
+      console.log("receipt", receipt);
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }

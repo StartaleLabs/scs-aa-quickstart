@@ -140,7 +140,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(777777777777777777777788),
+      index: BigInt(7777777777777777777777888),
     });
 
     const factoryArgs = await account.getFactoryArgs();
