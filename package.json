@@ -11,6 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@biconomy/abstractjs": "^0.1.0",
     "@rhinestone/module-sdk": "^0.2.4",
     "@zerodev/ecdsa-validator": "^5.4.3",
     "@zerodev/sdk": "^5.4.18",

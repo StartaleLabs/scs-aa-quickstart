@@ -1,5 +1,3 @@
-// WIP
-
 import "dotenv/config";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { createKernelAccount, createKernelAccountClient, getUserOperationGasPrice } from "@zerodev/sdk";
@@ -19,6 +17,11 @@ import {
   zeroAddress,
   encodeAbiParameters,
   toBytes,
+  pad,
+  concatHex,
+  domainSeparator,
+  keccak256,
+  stringToHex,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -31,6 +34,7 @@ import {
   createBundlerClient,
   createPaymasterClient,
   entryPoint07Address,
+  getUserOperationHash,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
@@ -41,9 +45,11 @@ import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
-import { encodeValidationData, getAccount, getEnableSessionDetails, getOwnableValidator, getOwnableValidatorOwners, getPermissionId, getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction, MOCK_ATTESTER_ADDRESS, OWNABLE_VALIDATOR_ADDRESS, RHINESTONE_ATTESTER_ADDRESS, Session, SMART_SESSIONS_ADDRESS } from "@rhinestone/module-sdk";
+import { encodeSmartSessionSignature, encodeValidationData, encodeValidatorNonce, getAccount, getEnableSessionDetails, getOwnableValidator, getOwnableValidatorMockSignature, getOwnableValidatorOwners, getPermissionId, getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction, MOCK_ATTESTER_ADDRESS, OWNABLE_VALIDATOR_ADDRESS, RHINESTONE_ATTESTER_ADDRESS, Session, SMART_SESSIONS_ADDRESS, SmartSessionMode } from "@rhinestone/module-sdk";
 import { OwnableValidatorAbi } from "./abi/OwnableValidator";
-import { enableingSessionsAbi, enableSessionAbi, installSmartSessionsAbi } from "./abi/SmartSessionAbi";
+import { enableingSessionsAbi, enableSessionAbi, encodeEnableSessionSignatureAbi, installSmartSessionsAbi } from "./abi/SmartSessionAbi";
+import { getAccountNonce } from "@zerodev/sdk/actions";
+import { LibZip } from "solady";
 
 const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -52,7 +58,8 @@ const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
 const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
 const UniActionPolicy = process.env.UNI_ACTION_POLICY_MODULE_ADDRESS as Address;
-const OwnableValidator = process.env.OWNABLE_VALIDATOR_ADDRESS as Address;
+// const SmartSessionValidator = process.env.SMART_SESSIONS_MODULE_ADDRESS as Address;
+// const OwnableValidator = process.env.OWNABLE_VALIDATOR_ADDRESS as Address;
 const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
 const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
@@ -104,7 +111,7 @@ const entryPoint = {
 
 const kernelVersion = KERNEL_V3_2;
 
-const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
+const scsContext = { calculateGasLimits: false, policyId: "policy_1" }
 
 const main = async () => {
   const spinner = ora({ spinner: "bouncingBar" });
@@ -137,7 +144,7 @@ const main = async () => {
       accountImplementationAddress: kernelImplementation,
       useMetaFactory: true,
       metaFactoryAddress: stakerFactory,
-      index: BigInt(19059),
+      index: BigInt(7777777777777777777777777778),
     });
 
     const factoryArgs = await account.getFactoryArgs();
@@ -219,6 +226,8 @@ const main = async () => {
     const smartSessions = getSmartSessionsValidator({})
     console.log("Smart Sessions: ", smartSessions);
 
+    // make this work with module-sdk addresses of smart session validator and ownable validator
+    
     // Override our own addresses
     // smartSessions.address = SmartSessionValidator
     // smartSessions.module = SmartSessionValidator
@@ -228,13 +237,15 @@ const main = async () => {
 
     if(!isSmartSessionsModuleInstalled) {
 
+    // Verify if registering a selector is needed with USE mode as well.  
+    // Edit: Yes. It is needed. As we are using USE mode, we need to register the selector as well
     const context = encodePacked(
       ['address', 'bytes'],
       [
         zeroAddress,
         encodeAbiParameters(
-          [{ type: 'bytes' }, { type: 'bytes' }],
-          [smartSessions.initData || '0x', '0x'],
+          [{ type: 'bytes' }, { type: 'bytes' }, { type: 'bytes' }],
+          [smartSessions.initData || '0x', '0x', "0xe9ae5c53"],
         ),
       ],
     )
@@ -275,6 +286,12 @@ const main = async () => {
     ],
   });
 
+  // Trust attestors is not required when we use our custom addressses
+  // SMART_SESSIONS_MODULE_ADDRESS=0x716BC27e1b904331C58891cC3AB13889127189a7
+  // OWNABLE_VALIDATOR_ADDRESS=0x7C5F70297f194800D8cE49F87a6b29f8d88f38Ad
+
+  // But is required when we use Rhinestone addresses in production
+
   const userOpHash1 = await kernelClient.sendUserOperation({
     account: account,
     calls: [
@@ -295,53 +312,17 @@ const main = async () => {
 
   // Followed below as well
   // https://docs.rhinestone.wtf/module-registry/usage/mock-attestation
+  // For rhinestone addresses it is already done.
 
 
-  // Install Ownable Validator
+  // Installing Ownable validator is not required.
 
-  const ownableValidator = getOwnableValidator({
-    owners: [signer.address],
-    threshold: 1,
-    hook: zeroAddress,
-  });
-
-  ownableValidator.address = OwnableValidator
-  ownableValidator.module = OwnableValidator
-
-  ownableValidator.initData = encodePacked(
-    ["address", "bytes"],
-    [
-      zeroAddress,
-      encodeAbiParameters(
-        [{ type: "bytes" }, { type: "bytes" }],
-        [ownableValidator.initData, "0x"],
-      ),
-    ],
-  );
-
-  console.log("Ownable Validator: ", ownableValidator);
-
-  const opHashInstallOwnableVal = await kernelClient.installModule(ownableValidator);
-  console.log("Operation hash: ", opHashInstallOwnableVal);
-  const result1 = await bundlerClient.waitForUserOperationReceipt({hash: opHashInstallOwnableVal});
-  console.log("Operation result to install ownableValidator: ", result1.receipt.transactionHash);
-  spinner.succeed(chalk.greenBright.bold.underline("Ownable Validator installed successfully"));
-
-  const owners = (await publicClient.readContract({
-    address: OwnableValidator,
-    abi: OwnableValidatorAbi,
-    functionName: 'getOwners',
-    args: [account.address],
-  })) as Address[]
-   console.log("All Owners: ", owners);
-
-  // Now that the smart session is installed and account has trusted attesters..
 
   // Note: Can keep fixed session owner
   const sessionOwner = privateKeyToAccount(generatePrivateKey())
 
   const session: Session = {
-    sessionValidator: OwnableValidator,
+    sessionValidator: OWNABLE_VALIDATOR_ADDRESS,
     sessionValidatorInitData: encodeValidationData({
       threshold: 1,
       owners: [sessionOwner.address],
@@ -355,7 +336,7 @@ const main = async () => {
     actions: [
       {
         actionTarget: counterContract, // an address as the target of the session execution
-        actionTargetSelector: '0xf7210633' as Hex, // function selector to be used in the execution, in this case counters() // cast sig "counters()" to hex
+        actionTargetSelector: '0x06661abd' as Hex, // function selector to be used in the execution, in this case count() // cast sig "count()" to hex
         actionPolicies: [getSudoPolicy()],
       },
     ],
@@ -367,57 +348,250 @@ const main = async () => {
 
   const sessions: Session[] = [session]
 
-  const preparePermissionData = encodeFunctionData({
-    abi: enableingSessionsAbi,
-    functionName: "enableSessions",
-    args: [sessions]
+  console.log("account address: ", account.address);
+
+  const sessionDetails = await getEnableSessionDetails({
+    sessions: [session],
+    account: kernelAccountForModuleSdk,
+    clients: [publicClient as any],
   })
 
-  console.log("Prepare Permission Data: ", preparePermissionData)
+  console.log("Session Details: ", sessionDetails);
 
-  const permissionId = getPermissionId({
-    session
+  const _domainSeparator = domainSeparator({
+    domain: {
+      name: "Kernel",
+      version: "0.3.2",
+      chainId: chain.id,
+      verifyingContract: account.address,
+    },
+  });
+
+
+  const wrappedMessageHash = keccak256(
+    encodeAbiParameters(
+      [{ type: "bytes32" }, { type: "bytes32" }],
+      [
+        keccak256(stringToHex("Kernel(bytes32 hash)")),
+        sessionDetails.permissionEnableHash,
+      ],
+    ),
+  );
+
+  const digest = keccak256(
+    concatHex(["0x1901", _domainSeparator, wrappedMessageHash]),
+  );
+
+  // sessionDetails.enableSessionData.enableSession.permissionEnableSig =
+  // await signer.signMessage({
+  //   message: { raw: sessionDetails.permissionEnableHash },
+  // })
+
+  sessionDetails.enableSessionData.enableSession.permissionEnableSig =
+  await signer.signMessage({
+    message: { raw: digest },
   })
 
-  // return {
-  //   action: {
-  //     target: SMART_SESSIONS_ADDRESS,
-  //     value: BigInt(0),
-  //     callData: preparePermissionData
-  //   },
-  //   permissionIds: permissionIds,
-  //   sessions
-  // }
+  const nonceKey = encodeValidatorNonceKey({
+    validator: SMART_SESSIONS_ADDRESS,
+  })
 
-  const userOpHashEnableSession = await kernelClient.sendUserOperation({
+  console.log("nonceKey: ", toHex(nonceKey));
+
+  const nonce = await getAccountNonce(publicClient, {
+    address: account.address,
+    entryPointAddress: entryPoint07Address,
+    key: nonceKey
+  });
+
+  console.log("Nonce Hex: ", toHex(nonce));
+
+  const mockSig = getOwnableValidatorMockSignature({
+    threshold: 1,
+  });
+
+  console.log("mockSig: ", mockSig);
+
+  sessionDetails.signature = mockSig;
+
+  // const smartSessEnableMockSig = encodeSmartSessionSignature(sessionDetails);
+
+  const smartSessMockSigNew = encodePacked(
+    ['bytes1', 'bytes'],
+    [
+      sessionDetails.mode,
+      LibZip.flzCompress(
+        encodeAbiParameters(encodeEnableSessionSignatureAbi, [
+          {
+            chainDigestIndex:
+              sessionDetails.enableSessionData.enableSession.chainDigestIndex,
+            hashesAndChainIds:
+              sessionDetails.enableSessionData.enableSession.hashesAndChainIds,
+            sessionToEnable:
+              sessionDetails.enableSessionData.enableSession.sessionToEnable,
+            permissionEnableSig: encodePacked(
+              ["address", "bytes"],
+              [
+                sessionDetails.enableSessionData.validator,
+                sessionDetails.enableSessionData.enableSession
+                  .permissionEnableSig,
+              ],
+            ),
+          },
+          sessionDetails.signature,
+        ]),
+      ) as Hex,
+    ],
+  );
+
+  console.log("Smart Session Enable Mock Signature: ", smartSessMockSigNew);
+
+    // Failing op simulated:
+    // https://dashboard.tenderly.co/livingrock7/project/simulator/3a83e7b9-b258-4a27-a32d-af90c5772e4d/debugger?trace=0.1.1.0.0
+
+  const userOperation = await kernelClient.prepareUserOperation({
     account: account,
     calls: [
       {
-        to: SMART_SESSIONS_ADDRESS,
+        to: session.actions[0].actionTarget,
         value: BigInt(0),
-        data: preparePermissionData,
+        data: session.actions[0].actionTargetSelector,
       },
     ],
+    nonce,
+    signature: smartSessMockSigNew,
   });
 
-  const receipt2 = await bundlerClient.waitForUserOperationReceipt({
-    hash: userOpHashEnableSession,
+  console.log("User Operation: ", userOperation);
+
+  const userOpHashToSign = getUserOperationHash({
+    chainId: chain.id,
+    entryPointAddress: entryPoint07Address,
+    entryPointVersion: "0.7",
+    userOperation,
   });
-  console.log("User Operation hash to enable session: ", receipt2.receipt.transactionHash);
-  spinner.succeed(chalk.greenBright.bold.underline("Session enabled successfully"));
 
-//   const sessionDetails = await getEnableSessionDetails({
-//     sessions: [session],
-//     account: kernelAccountForModuleSdk,
-//     clients: [publicClient as any],
-//   })
+  console.log("User Operation hash to sign: ", userOpHashToSign);
 
-   // WIP ...
+  const sessionKeySignature = await sessionOwner.signMessage({
+    message: { raw: userOpHashToSign },
+  });
+
+  console.log("Session Key Signature: ", sessionKeySignature);
+
+  sessionDetails.signature = sessionKeySignature;
+
+  // const userOpSignature = encodePacked(
+  //   ['bytes1', 'bytes32', 'bytes'],
+  //   [SmartSessionMode.USE, permissionId, sessionKeySignature],
+  // );
+
+  const userOpSignature = encodePacked(
+    ["bytes1", "bytes"],
+    [
+      sessionDetails.mode,
+      LibZip.flzCompress(
+        encodeAbiParameters(encodeEnableSessionSignatureAbi, [
+          {
+            chainDigestIndex:
+              sessionDetails.enableSessionData.enableSession.chainDigestIndex,
+            hashesAndChainIds:
+              sessionDetails.enableSessionData.enableSession.hashesAndChainIds,
+            sessionToEnable:
+              sessionDetails.enableSessionData.enableSession.sessionToEnable,
+            permissionEnableSig: encodePacked(
+              ["address", "bytes"],
+              [
+                sessionDetails.enableSessionData.validator,
+                sessionDetails.enableSessionData.enableSession
+                  .permissionEnableSig,
+              ],
+            ),
+          },
+          sessionDetails.signature,
+        ]),
+      ) as Hex,
+    ],
+  );
+
+  userOperation.signature = userOpSignature;
+
+  const finalOpHash = await kernelClient.sendUserOperation(userOperation as any);
+
+  const receiptFinal = await bundlerClient.waitForUserOperationReceipt({
+    hash: finalOpHash,
+  });
+
+  console.log("User Operation hash to execute session: ", receiptFinal.receipt.transactionHash);
+  spinner.succeed(chalk.greenBright.bold.underline("Session executed successfully"));
+
+
+  const counterStateAfter = (await publicClient.readContract({
+    address: counterContract,
+    abi: CounterAbi,
+    functionName: "counters",
+    args: [account.address],
+  })) as bigint;
+
+  console.log("Counter state after session execution: ", counterStateAfter);
+
+  tableBefore.push(
+    { "Counter state after": counterStateAfter.toString() },
+  );
+  console.log(tableBefore.toString());
+  console.log("\n");
   } catch (error) {
     spinner.fail(chalk.red(`Error: ${(error as Error).message}`));
   }
   process.exit(0);
 };
+
+export const encodeValidatorNonceKey = ({
+  validator,
+  nonceKey = 0, // Default 0 as in Solidity test
+}: {
+  validator: Hex; // 20-byte Ethereum address
+  nonceKey?: number; // 16-bit nonce key
+}) => {
+  return BigInt(
+    pad(
+      encodePacked(
+        ["bytes1", "bytes1", "address", "uint16"],
+        ["0x00", "0x01", validator, nonceKey],
+      ),
+      {
+        dir: "right",
+        size: 24,
+      },
+    ),
+  );
+
+  // ValidationType constant VALIDATION_TYPE_VALIDATOR = ValidationType.wrap(0x01);
+  // ValidationMode constant VALIDATION_MODE_DEFAULT = ValidationMode.wrap(0x00);
+
+  // const validatorMode = "0x00";
+  // const validationType = "0x01";
+
+  // const encoding = pad(
+  //   concatHex([
+  //       pad(validatorMode, {size: 1}), // 1 byte
+  //       pad(validationType, {size: 1}), // 1 byte
+  //       pad(validator, {
+  //           size: 20,
+  //           dir: "right"
+  //       }), // 20 bytes
+  //       pad(
+  //           toHex(BigInt(0)),
+  //           {
+  //               size: 2
+  //           }
+  //       ) // 2 byte
+  //   ]),
+  //   { size: 24 }
+  // );
+  // const encodedNonceKey = BigInt(encoding);
+  // return encodedNonceKey;
+}
 
 function bigIntToHex(_: string, value: any) {
   if (typeof value === "bigint") {
