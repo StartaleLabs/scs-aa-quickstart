@@ -1,3 +1,8 @@
+// WIP
+// current references:
+// 1. https://github.com/rhinestonewtf/module-sdk-tutorials/blob/feat/kernel-guides/src/smart-sessions/permissionless-kernel.ts
+// 2. https://docs.rhinestone.wtf/module-sdk/using-modules/smart-sessions
+
 import "dotenv/config";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { createKernelAccount, createKernelAccountClient, getUserOperationGasPrice } from "@zerodev/sdk";
