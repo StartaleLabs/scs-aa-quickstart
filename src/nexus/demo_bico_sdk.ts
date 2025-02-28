@@ -51,12 +51,10 @@ const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
-const ECDSAValidator = process.env.ECDSA_VALIDATOR_ADDRESS;
-const kernelFactory = process.env.KERNEL_FACTORY_ADDRESS as Address;
-const UniActionPolicy = process.env.UNI_ACTION_POLICY_MODULE_ADDRESS as Address;
-const kernelImplementation = process.env.KERNEL_IMPLEMENTATION_ADDRESS as Address;
-const stakerFactory = process.env.STAKER_FACTORY_ADDRESS as Address;
+const k1Validator = process.env.NEXUS_K1_VALIDATOR_ADDRESS as Address;
+const k1ValidatorFactory = process.env.NEXUS_K1_VALIDATOR_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
+const mockAttester = process.env.MOCK_ATTESTER_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -103,7 +101,8 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
-const scsContext = { calculateGasLimits: false, policyId: "policy_1" }
+// Note: in case of biconomy sdk we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -125,38 +124,39 @@ const main = async () => {
     //     bundlerTransport: http(bundlerUrl),
     //   });
 
+      const eoaAddress = signer.address;
+      console.log("eoaAddress", eoaAddress); 
+
       const nexusClient = createSmartAccountClient({
         account: await toNexusAccount({ 
           signer: signer, 
           chain: chain,
           transport: http(),
+          attesters: [mockAttester],
+          factoryAddress: k1ValidatorFactory,
+          validatorAddress: k1Validator,
+          index: BigInt(100)
         }),
         transport: http(bundlerUrl),
         client: publicClient,
-        // paymaster: {
-        //     async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-        //       console.log("Called getPaymasterData: ", pmDataParams);
-        //       const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-        //       console.log("Paymaster Response: ", paymasterResponse);
-        //       return paymasterResponse;
-        //     },
-        //     async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-        //       console.log("Called getPaymasterStubData: ", pmStubDataParams);
-        //       const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-        //       console.log("Paymaster Stub Response: ", paymasterStubResponse);
-        //       // return paymasterStubResponse;
-        //       return {
-        //         ...paymasterStubResponse,
-        //         paymasterAndData: undefined,
-        //         paymaster: paymasterContract,
-        //         paymasterData: paymasterStubResponse.paymasterData || "0x",
-        //         paymasterVerificationGasLimit: paymasterStubResponse.paymasterVerificationGasLimit || BigInt(200000),
-        //         paymasterPostOpGasLimit: paymasterStubResponse.paymasterPostOpGasLimit || BigInt(100000),
-        //       };
-        //     },
-        //   },
-        //   paymasterContext: scsContext,
-
+        paymaster: {
+            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
+              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
+              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
+              pmDataParams.verificationGasLimit = BigInt(500000);
+              console.log("Called getPaymasterData: ", pmDataParams);
+              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
+              console.log("Paymaster Response: ", paymasterResponse);
+              return paymasterResponse;
+            },
+            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
+              console.log("Called getPaymasterStubData: ", pmStubDataParams);
+              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
+              console.log("Paymaster Stub Response: ", paymasterStubResponse);
+              return paymasterStubResponse;
+            },
+          },
+          paymasterContext: scsContext,
         // Note: Otherise makes a call to 'biconomy_getGasFeeValues' endpoint
           userOperation: {
             estimateFeesPerGas: async ({bundlerClient}) => {
