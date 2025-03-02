@@ -1,5 +1,5 @@
 // WIP
-// ref: https://docs.biconomy.io/nexus-client
+// ref: https://docs.biconomy.io/tutorials/smart-sessions
 
 import "dotenv/config";
 import ora from "ora";
@@ -171,16 +171,16 @@ const main = async () => {
       const address = nexusClient.account.address;
       console.log("address", address);
 
-      const hash = await nexusClient.sendUserOperation({ 
-        calls: [ 
-          { 
-            to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37', 
-            value: parseEther('0.001'), 
-          }, 
-        ], 
-      }); 
-      const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
-      console.log("receipt", receipt);
+      // const hash = await nexusClient.sendUserOperation({ 
+      //   calls: [ 
+      //     { 
+      //       to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37', 
+      //       value: parseEther('0.001'), 
+      //     }, 
+      //   ], 
+      // }); 
+      // const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
+      // console.log("receipt", receipt);
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }
@@ -188,8 +188,3 @@ const main = async () => {
 }
 
 main();
-
-
-
-
-

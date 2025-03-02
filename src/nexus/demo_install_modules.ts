@@ -45,6 +45,7 @@ import { createSmartAccountClient, toNexusAccount } from "@biconomy/abstractjs";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
+import { getSmartSessionsValidator, getSocialRecoveryValidator } from "@rhinestone/module-sdk";
 
 
 const bundlerUrl = process.env.BUNDLER_URL;
@@ -55,6 +56,9 @@ const k1Validator = process.env.NEXUS_K1_VALIDATOR_ADDRESS as Address;
 const k1ValidatorFactory = process.env.NEXUS_K1_VALIDATOR_FACTORY_ADDRESS as Address;
 const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
 const mockAttester = process.env.MOCK_ATTESTER_ADDRESS as Address;
+
+const guardian1Pk = process.env.SIGNER_1_PRIVATE_KEY;
+const guardian2Pk = process.env.SIGNER_2_PRIVATE_KEY;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -114,7 +118,7 @@ const main = async () => {
     };
   
     try {
-      spinner.start("Initializing smart account...");
+      // spinner.start("Initializing smart account...");
       const tableBefore = new cliTable(tableConfig);
 
     //   const nexusClient = await createNexusClient({
@@ -144,13 +148,13 @@ const main = async () => {
               pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
               pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
               pmDataParams.verificationGasLimit = BigInt(500000);
-              console.log("Called getPaymasterData: ", pmDataParams);
+              // console.log("Called getPaymasterData: ", pmDataParams);
               const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
               console.log("Paymaster Response: ", paymasterResponse);
               return paymasterResponse;
             },
             async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              console.log("Called getPaymasterStubData: ", pmStubDataParams);
+              // console.log("Called getPaymasterStubData: ", pmStubDataParams);
               const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
               console.log("Paymaster Stub Response: ", paymasterStubResponse);
               return paymasterStubResponse;
@@ -180,7 +184,76 @@ const main = async () => {
         ], 
       }); 
       const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
-      console.log("receipt", receipt);
+      console.log("receipt tx hash", receipt.receipt.transactionHash);
+
+
+      const guardian1 = privateKeyToAccount(
+        guardian1Pk as Hex,
+      ) // the key coresponding to the first guardian
+       
+      const guardian2 = privateKeyToAccount(
+        guardian2Pk as Hex, 
+      ) // the key coresponding to the second guardian
+       
+      const socialRecovery = getSocialRecoveryValidator({
+         threshold: 2,
+         guardians: [guardian1.address, guardian2.address],
+      })
+
+      console.log("socialRecovery", socialRecovery);
+
+      const isAccountRecoveryModuleInstalled = await nexusClient.isModuleInstalled({
+        module: socialRecovery
+      })
+      console.log("isAccountRecoveryModuleInstalled", isAccountRecoveryModuleInstalled);
+
+      if(!isAccountRecoveryModuleInstalled) {
+
+        const opHash = await nexusClient.installModule({
+            module: socialRecovery
+          })
+    
+          console.log("Operation hash: ", opHash);
+    
+          const result = await bundlerClient.waitForUserOperationReceipt({
+            hash: opHash,
+          })
+          console.log("Operation result: ", result.receipt.transactionHash);
+    
+        spinner.succeed(chalk.greenBright.bold.underline("Account Recovery Module installed successfully"));
+
+      } else {
+        spinner.succeed(chalk.greenBright.bold.underline("Account Recovery Module already installed"));
+      }
+
+      // Smart Sessions Now..
+      const smartSessions = getSmartSessionsValidator({})
+      console.log("Smart Sessions: ", smartSessions);
+
+      const isSmartSessionsModuleInstalled = await nexusClient.isModuleInstalled({
+        module: smartSessions
+      })
+      console.log("Is Smart Sessions Module Installed: ", isSmartSessionsModuleInstalled);
+
+      if(!isSmartSessionsModuleInstalled) {
+
+        const opHash = await nexusClient.installModule({
+            module: smartSessions
+          })
+    
+          console.log("Operation hash: ", opHash);
+    
+          const result = await bundlerClient.waitForUserOperationReceipt({
+            hash: opHash,
+          })
+          console.log("Operation result: ", result.receipt.transactionHash);
+    
+        spinner.succeed(chalk.greenBright.bold.underline("Smart Sessions Module installed successfully"));
+
+      } else    {
+        spinner.succeed(chalk.greenBright.bold.underline("Smart Sessions Module already installed"));
+      }
+      
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }
