@@ -19,6 +19,7 @@ import {
   pad,
   concatHex,
   parseEther,
+  stringify,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -41,7 +42,7 @@ import { erc7579Actions } from "permissionless/actions/erc7579";
 import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 // import { createNexusClient } from "@biconomy/abstractjs";
-import { createSmartAccountClient, toNexusAccount } from "@biconomy/abstractjs";
+import { CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, SmartSessionMode, toNexusAccount, toSmartSessionsValidator } from "@biconomy/abstractjs";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -117,13 +118,6 @@ const main = async () => {
       spinner.start("Initializing smart account...");
       const tableBefore = new cliTable(tableConfig);
 
-    //   const nexusClient = await createNexusClient({
-    //     signer: signer as any,
-    //     chain: baseSepolia,
-    //     transport: http(),
-    //     bundlerTransport: http(bundlerUrl),
-    //   });
-
       const eoaAddress = signer.address;
       console.log("eoaAddress", eoaAddress); 
 
@@ -135,7 +129,7 @@ const main = async () => {
           attesters: [mockAttester],
           factoryAddress: k1ValidatorFactory,
           validatorAddress: k1Validator,
-          index: BigInt(100)
+          index: BigInt(1000012)
         }),
         transport: http(bundlerUrl),
         client: publicClient,
@@ -168,19 +162,106 @@ const main = async () => {
           }
       })
 
+    
       const address = nexusClient.account.address;
       console.log("address", address);
 
-      // const hash = await nexusClient.sendUserOperation({ 
-      //   calls: [ 
-      //     { 
-      //       to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37', 
-      //       value: parseEther('0.001'), 
-      //     }, 
-      //   ], 
-      // }); 
-      // const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
-      // console.log("receipt", receipt);
+      // Note: Can keep fixed session owner
+      const sessionOwner = privateKeyToAccount(generatePrivateKey())
+
+      // Create a smart sessions module for the user's account
+      const sessionsModule = toSmartSessionsValidator({
+        account: nexusClient.account,
+        signer: sessionOwner,
+      })
+
+      console.log("sessionsModule", sessionsModule);
+
+      const isInstalledBefore = await nexusClient.isModuleInstalled({
+        module: sessionsModule.moduleInitData
+      })
+
+      if(!isInstalledBefore) {
+        const installModuleHash = await nexusClient.installModule({
+          module: sessionsModule.moduleInitData
+        });
+  
+        const result = await bundlerClient.waitForUserOperationReceipt({
+          hash: installModuleHash,
+        })
+        console.log("Operation result: ", result.receipt.transactionHash);
+  
+        spinner.succeed(chalk.greenBright.bold.underline("Smart Sessions Module installed successfully"));
+      } else {
+        spinner.succeed(chalk.greenBright.bold.underline("Smart Sessions Module already installed"));
+      }
+
+      const nexusSessionClient = nexusClient.extend(
+        smartSessionCreateActions(sessionsModule)
+      )
+
+      // // Define the session parameters
+      // // This includes the session key, validator, and action policies
+      // const createSessionsResponse = await nexusSessionClient.grantPermission({
+      //   sessionRequestedInfo: [
+      //     {
+      //      sessionPublicKey: sessionOwner.address, // Public key of the session
+      //      // sessionValidUntil: number
+      //     // sessionValidAfter: number
+      //     // chainIds: bigint[]
+      //      actionPoliciesInfo: [
+      //        {
+      //          abi: CounterAbi,
+      //          contractAddress: counterContract,
+      //          sudo: true
+      //          // validUntil?: number
+      //          // validAfter?: number
+      //          // valueLimit?: bigint
+      //         }
+      //       ]
+      //     }
+      //   ]
+      // })
+
+      // session key signer address is declared here
+    const sessionRequestedInfo: CreateSessionDataParams[] = [
+      {
+        sessionPublicKey: sessionOwner.address, // session key signer
+        actionPoliciesInfo: [
+          {
+            contractAddress: counterContract, // counter address
+            functionSelector: '0x06661abd' as Hex, // function selector for increment count
+            sudo: true
+          }
+        ]
+      }
+    ]
+
+    const createSessionsResponse = await nexusSessionClient.grantPermission({
+      sessionRequestedInfo
+    })
+    console.log("createSessionsResponse", createSessionsResponse);
+
+    const sessionData: SessionData = {
+      granter: nexusClient.account.address,
+      description: `Session to increment a counter for ${counterContract}`,
+      sessionPublicKey: sessionOwner.address,
+      moduleData: {
+        permissionIds: createSessionsResponse.permissionIds,
+        action: createSessionsResponse.action,
+        mode: SmartSessionMode.USE,
+        sessions: createSessionsResponse.sessions
+      }
+    }
+
+    const cachedSessionData = stringify(sessionData);
+    console.log("cachedSessionData", cachedSessionData);
+
+    const result = await bundlerClient.waitForUserOperationReceipt({
+      hash: createSessionsResponse.userOpHash,
+    })
+    console.log("Operation result: ", result.receipt.transactionHash);
+    
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }

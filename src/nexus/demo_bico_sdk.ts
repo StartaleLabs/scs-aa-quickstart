@@ -171,13 +171,27 @@ const main = async () => {
       const address = nexusClient.account.address;
       console.log("address", address);
 
+      const counterStateBefore = (await publicClient.readContract({
+        address: counterContract,
+        abi: CounterAbi,
+        functionName: "counters",
+        args: [nexusClient.account.address],
+      })) as bigint;
+
+      // Construct call data
+      const callData = encodeFunctionData({
+        abi: CounterAbi,
+        functionName: "count",
+      });
+
       const hash = await nexusClient.sendUserOperation({ 
-        calls: [ 
-          { 
-            to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37', 
-            value: parseEther('0.001'), 
-          }, 
-        ], 
+        calls: [
+          {
+            to: counterContract as Address,
+            value: BigInt(0),
+            data: callData,
+          },
+        ],
       }); 
       const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
       console.log("receipt", receipt);

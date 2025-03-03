@@ -139,7 +139,7 @@ const main = async () => {
           attesters: [mockAttester],
           factoryAddress: k1ValidatorFactory,
           validatorAddress: k1Validator,
-          index: BigInt(100)
+          index: BigInt(10099)
         }),
         transport: http(bundlerUrl),
         client: publicClient,
@@ -175,13 +175,20 @@ const main = async () => {
       const address = nexusClient.account.address;
       console.log("address", address);
 
+      // Construct call data
+      const callData = encodeFunctionData({
+        abi: CounterAbi,
+        functionName: "count",
+      });
+
       const hash = await nexusClient.sendUserOperation({ 
-        calls: [ 
-          { 
-            to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37', 
-            value: parseEther('0.001'), 
-          }, 
-        ], 
+        calls: [
+          {
+            to: counterContract as Address,
+            value: BigInt(0),
+            data: callData,
+          },
+        ],
       }); 
       const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
       console.log("receipt tx hash", receipt.receipt.transactionHash);
