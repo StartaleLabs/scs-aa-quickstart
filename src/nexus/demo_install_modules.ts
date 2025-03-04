@@ -139,7 +139,7 @@ const main = async () => {
           attesters: [mockAttester],
           factoryAddress: k1ValidatorFactory,
           validatorAddress: k1Validator,
-          index: BigInt(10099)
+          index: BigInt(10099556)
         }),
         transport: http(bundlerUrl),
         client: publicClient,

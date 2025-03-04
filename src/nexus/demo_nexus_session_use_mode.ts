@@ -20,6 +20,7 @@ import {
   concatHex,
   parseEther,
   stringify,
+  PublicClient,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -42,10 +43,11 @@ import { erc7579Actions } from "permissionless/actions/erc7579";
 import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 // import { createNexusClient } from "@biconomy/abstractjs";
-import { CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, SmartSessionMode, toNexusAccount, toSmartSessionsValidator } from "@biconomy/abstractjs";
+import { CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, SmartSessionMode, smartSessionUseActions, toNexusAccount, toSmartSessionsValidator } from "@biconomy/abstractjs";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
+import { isSessionEnabled } from "@rhinestone/module-sdk";
 
 
 const bundlerUrl = process.env.BUNDLER_URL;
@@ -129,7 +131,7 @@ const main = async () => {
           attesters: [mockAttester],
           factoryAddress: k1ValidatorFactory,
           validatorAddress: k1Validator,
-          index: BigInt(1000012)
+          index: BigInt(1000025)
         }),
         transport: http(bundlerUrl),
         client: publicClient,
@@ -200,42 +202,22 @@ const main = async () => {
         smartSessionCreateActions(sessionsModule)
       )
 
-      // // Define the session parameters
-      // // This includes the session key, validator, and action policies
-      // const createSessionsResponse = await nexusSessionClient.grantPermission({
-      //   sessionRequestedInfo: [
-      //     {
-      //      sessionPublicKey: sessionOwner.address, // Public key of the session
-      //      // sessionValidUntil: number
-      //     // sessionValidAfter: number
-      //     // chainIds: bigint[]
-      //      actionPoliciesInfo: [
-      //        {
-      //          abi: CounterAbi,
-      //          contractAddress: counterContract,
-      //          sudo: true
-      //          // validUntil?: number
-      //          // validAfter?: number
-      //          // valueLimit?: bigint
-      //         }
-      //       ]
-      //     }
-      //   ]
-      // })
+
+      // Note: It uses sudo policy here but we can make use of uni action policy as well
 
       // session key signer address is declared here
-    const sessionRequestedInfo: CreateSessionDataParams[] = [
-      {
-        sessionPublicKey: sessionOwner.address, // session key signer
-        actionPoliciesInfo: [
-          {
-            contractAddress: counterContract, // counter address
-            functionSelector: '0x06661abd' as Hex, // function selector for increment count
-            sudo: true
-          }
-        ]
-      }
-    ]
+      const sessionRequestedInfo: CreateSessionDataParams[] = [
+        {
+         sessionPublicKey: sessionOwner.address, // session key signer
+         actionPoliciesInfo: [
+           {
+             contractAddress: counterContract, // counter address
+             functionSelector: '0x06661abd' as Hex, // function selector for increment count
+             sudo: true
+           }
+          ]
+        }
+      ]
 
     const createSessionsResponse = await nexusSessionClient.grantPermission({
       sessionRequestedInfo
@@ -257,11 +239,124 @@ const main = async () => {
     const cachedSessionData = stringify(sessionData);
     console.log("cachedSessionData", cachedSessionData);
 
+    // Review: https://dashboard.tenderly.co/livingrock7/project/simulator/850541bd-b5e3-4989-adc7-ba4f551ee381
+    // for attesting all the modules follow rhinestone docs
+
     const result = await bundlerClient.waitForUserOperationReceipt({
       hash: createSessionsResponse.userOpHash,
     })
     console.log("Operation result: ", result.receipt.transactionHash);
-    
+    spinner.succeed(chalk.greenBright.bold.underline("Session created successfully with granted permissions"));
+
+    const counterStateBefore = (await publicClient.readContract({
+      address: counterContract,
+      abi: CounterAbi,
+      functionName: "counters",
+      args: [nexusClient.account.address],
+    })) as bigint;
+    console.log("counterStateBefore", counterStateBefore);
+
+
+    // Now we will make use of Granted permissions
+
+    const parsedSessionData = JSON.parse(cachedSessionData) as SessionData;
+    console.log("parsedSessionData", parsedSessionData);
+
+    const isEnabled = await isSessionEnabled({
+      client: nexusClient.account.client as PublicClient,
+      account: {
+        type: "nexus",
+        address: nexusClient.account.address,
+        deployedOnChains: [chain.id]
+      },
+      permissionId: parsedSessionData.moduleData.permissionIds[0]
+    })
+    console.log("is session Enabled", isEnabled);
+
+    const smartSessionNexusClient = createSmartAccountClient({
+      account: await toNexusAccount({ 
+        signer: sessionOwner, 
+        accountAddress: sessionData.granter,
+        chain: chain,
+        transport: http(),
+        // attesters: [mockAttester],
+        // factoryAddress: k1ValidatorFactory,
+        // validatorAddress: k1Validator,
+        // index: BigInt(1000025)
+      }),
+      transport: http(bundlerUrl),
+      client: publicClient,
+      paymaster: {
+          async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
+            pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
+            pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
+            pmDataParams.verificationGasLimit = BigInt(500000);
+            console.log("Called getPaymasterData: ", pmDataParams);
+            const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
+            console.log("Paymaster Response: ", paymasterResponse);
+            return paymasterResponse;
+          },
+          async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
+            console.log("Called getPaymasterStubData: ", pmStubDataParams);
+            const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
+            console.log("Paymaster Stub Response: ", paymasterStubResponse);
+            return paymasterStubResponse;
+          },
+        },
+      paymasterContext: scsContext,
+      // Note: Otherise makes a call to 'biconomy_getGasFeeValues' endpoint
+      userOperation: {
+          estimateFeesPerGas: async ({bundlerClient}) => {
+            return {
+              maxFeePerGas: BigInt(10000000),
+              maxPriorityFeePerGas: BigInt(10000000)
+            }
+        }
+      },
+      mock: true
+    })
+
+    const usePermissionsModule = toSmartSessionsValidator({
+      account: smartSessionNexusClient.account,
+      signer: sessionOwner,
+      moduleData: parsedSessionData.moduleData
+    })
+
+    const useSmartSessionNexusClient = smartSessionNexusClient.extend(
+      smartSessionUseActions(usePermissionsModule)
+    )
+
+    // Construct call data
+    const callData = encodeFunctionData({
+      abi: CounterAbi,
+      functionName: "count",
+    });
+
+    const userOpHash = await useSmartSessionNexusClient.usePermission({
+      calls: [
+        {
+          to: counterContract,
+          data: callData
+        }
+      ]
+    })
+
+    const resultOfUsedSession = await bundlerClient.waitForUserOperationReceipt({
+      hash: userOpHash,
+    });
+
+    console.log("Operation result: ", resultOfUsedSession.receipt.transactionHash);
+    spinner.succeed(chalk.greenBright.bold.underline("Session used successfully"));
+
+
+    const counterStateAfter = (await publicClient.readContract({
+      address: counterContract,
+      abi: CounterAbi,
+      functionName: "counters",
+      args: [nexusClient.account.address],
+    })) as bigint;
+    console.log("counterStateAfter", counterStateAfter);
+
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }
