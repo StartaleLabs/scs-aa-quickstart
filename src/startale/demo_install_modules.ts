@@ -138,9 +138,9 @@ const main = async () => {
           chain: chain,
           transport: http(),
           attesters: [mockAttester],
-          factoryAddress: k1ValidatorFactory,
-          validatorAddress: k1Validator,
-          index: BigInt(10099556)
+          factoryAddress: "0x424B356131345c510C7c472F44cE44590064357D",
+          validatorAddress: "0x3b9dDd021f2a46388dFb2478961B369bEAe45722",
+          index: BigInt(10099556843)
         }),
         transport: http(bundlerUrl),
         client: publicClient as any,

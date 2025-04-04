@@ -32,6 +32,7 @@ import {
   createPaymasterClient,
   entryPoint07Address,
   getUserOperationHash,
+  type BundlerClient,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
 import { baseSepolia, soneiumMinato } from "viem/chains";
@@ -102,7 +103,7 @@ const entryPoint = {
 };
 
 // Note: in case of biconomy sdk we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
+const scsContext = { calculateGasLimits: true, policyId: "sudo" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -138,7 +139,7 @@ const main = async () => {
           index: BigInt(1093)
         }),
         transport: http(bundlerUrl),
-        client: publicClient,
+        client: publicClient as any,
         paymaster: {
             async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
               pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
@@ -159,11 +160,15 @@ const main = async () => {
           paymasterContext: scsContext,
         // Note: Otherise makes a call to 'biconomy_getGasFeeValues' endpoint
           userOperation: {
-            estimateFeesPerGas: async ({bundlerClient}) => {
+            estimateFeesPerGas: async (params: { 
+              account: any; 
+              bundlerClient: any; 
+              userOperation: any;
+            }) => {
               return {
                 maxFeePerGas: BigInt(10000000),
                 maxPriorityFeePerGas: BigInt(10000000)
-            }
+              }
             }
           }
       })
