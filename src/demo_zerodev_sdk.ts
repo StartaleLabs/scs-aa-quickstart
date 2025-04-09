@@ -207,7 +207,7 @@ const main = async () => {
       maxFeePerGas: userOperation.maxFeePerGas,
       maxPriorityFeePerGas: userOperation.maxPriorityFeePerGas,
       chainId: 1946,
-      context: { calculateGasLimits: true, policyId: "policy_1" },
+      context: { calculateGasLimits: true, policyId: "sudo" },
       entryPointAddress: entryPoint07Address,
     };
 

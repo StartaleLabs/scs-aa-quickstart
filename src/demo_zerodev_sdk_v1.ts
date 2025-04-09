@@ -107,7 +107,7 @@ const entryPoint = {
 
 const kernelVersion = KERNEL_V3_2;
 
-const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
+const scsContext = { calculateGasLimits: true, policyId: "sudo" }
 
 const main = async () => {
   const spinner = ora({ spinner: "bouncingBar" });

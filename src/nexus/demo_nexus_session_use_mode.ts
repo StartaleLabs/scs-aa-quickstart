@@ -105,7 +105,7 @@ const entryPoint = {
 };
 
 // Note: in case of biconomy sdk we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, policyId: "policy_1" }
+const scsContext = { calculateGasLimits: true, policyId: "sudo" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
