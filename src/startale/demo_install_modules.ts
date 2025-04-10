@@ -118,7 +118,7 @@ const main = async () => {
       console.log("eoaAddress", eoaAddress); 
 
       const smartAccountClient = createSmartAccountClient({
-        account: await toStartaleSmartAccount({ 
+          account: await toStartaleSmartAccount({ 
           signer: signer, 
           chain: chain,
           transport: http(),
