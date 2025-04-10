@@ -1,6 +1,3 @@
-// WIP
-// ref: https://docs.biconomy.io/nexus-client
-
 import "dotenv/config";
 import ora from "ora";
 import {
@@ -41,8 +38,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 import { erc7579Actions } from "permissionless/actions/erc7579";
 import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-// import { createNexusClient } from "@biconomy/abstractjs";
-import { createSmartAccountClient, toNexusAccount } from "@biconomy/abstractjs";
+import { createSmartAccountClient, toStartaleSmartAccount } from "scs-smart-account-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -52,10 +48,6 @@ const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
-const k1Validator = process.env.NEXUS_K1_VALIDATOR_ADDRESS as Address;
-const k1ValidatorFactory = process.env.NEXUS_K1_VALIDATOR_FACTORY_ADDRESS as Address;
-const paymasterContract = process.env.PAYMASTER_CONTRACT_ADDRESS as Address;
-const mockAttester = process.env.MOCK_ATTESTER_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -102,7 +94,7 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
-// Note: in case of biconomy sdk we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
 const scsContext = { calculateGasLimits: true, policyId: "sudo" }
 
 const main = async () => {
@@ -118,27 +110,17 @@ const main = async () => {
       spinner.start("Initializing smart account...");
       const tableBefore = new cliTable(tableConfig);
 
-    //   const nexusClient = await createNexusClient({
-    //     signer: signer as any,
-    //     chain: baseSepolia,
-    //     transport: http(),
-    //     bundlerTransport: http(bundlerUrl),
-    //   });
-
       const eoaAddress = signer.address;
       console.log("eoaAddress", eoaAddress); 
 
-      const nexusClient = createSmartAccountClient({
-        account: await toNexusAccount({ 
-          signer: signer, 
-          chain: chain,
-          transport: http(),
-          attesters: [mockAttester],
-          factoryAddress: "0x424B356131345c510C7c472F44cE44590064357D",
-          validatorAddress: "0x3b9dDd021f2a46388dFb2478961B369bEAe45722",
-          index: BigInt(1096)
+      const smartAccountClient = createSmartAccountClient({
+        account: await toStartaleSmartAccount({ 
+          signer: signer as any, 
+          chain: chain as any,
+          transport: http() as any,
+          index: BigInt(1093)
         }),
-        transport: http(bundlerUrl),
+        transport: http(bundlerUrl) as any,
         client: publicClient as any,
         paymaster: {
             async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
@@ -158,9 +140,9 @@ const main = async () => {
             },
           },
           paymasterContext: scsContext,
-        // Note: Otherise makes a call to 'biconomy_getGasFeeValues' endpoint
+        // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
           userOperation: {
-            estimateFeesPerGas: async (params: { 
+            estimateFeesPerGas: async ({ account, bundlerClient, userOperation }: { 
               account: any; 
               bundlerClient: any; 
               userOperation: any;
@@ -173,14 +155,14 @@ const main = async () => {
           }
       })
 
-      const address = nexusClient.account.address;
+      const address = smartAccountClient.account.address;
       console.log("address", address);
 
       const counterStateBefore = (await publicClient.readContract({
         address: counterContract,
         abi: CounterAbi,
         functionName: "counters",
-        args: [nexusClient.account.address],
+        args: [smartAccountClient.account.address],
       })) as bigint;
 
       // Construct call data
@@ -189,7 +171,7 @@ const main = async () => {
         functionName: "count",
       });
 
-      const hash = await nexusClient.sendUserOperation({ 
+      const hash = await smartAccountClient.sendUserOperation({ 
         calls: [
           {
             to: counterContract as Address,
@@ -198,7 +180,7 @@ const main = async () => {
           },
         ],
       }); 
-      const receipt = await nexusClient.waitForUserOperationReceipt({ hash }); 
+      const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
       console.log("receipt", receipt);
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
@@ -207,8 +189,4 @@ const main = async () => {
 }
 
 main();
-
-
-
-
 
