@@ -34,8 +34,8 @@ import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
 import { baseSepolia, soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
 import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-import { erc7579Actions } from "permissionless/actions/erc7579";
-import { type InstallModuleParameters } from "permissionless/actions/erc7579";
+// import { erc7579Actions } from "permissionless/actions/erc7579";
+// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import { createSmartAccountClient, toStartaleSmartAccount } from "scs-smart-account-sdk";
 
@@ -119,12 +119,12 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer, 
-          chain: chain,
-          transport: http(),
+          signer: signer as any, 
+          chain: chain as any,
+          transport: http() as any,
           index: BigInt(10099556843)
         }),
-        transport: http(bundlerUrl),
+        transport: http(bundlerUrl) as any,
         client: publicClient as any,
         paymaster: {
             async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
