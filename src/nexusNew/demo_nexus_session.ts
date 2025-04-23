@@ -39,7 +39,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 // import { erc7579Actions } from "permissionless/actions/erc7579";
 // import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, smartSessionActions, toStartaleSmartAccount } from "startale-aa-sdk";
+// import { createSmartAccountClient, smartSessionActions, toStartaleSmartAccount } from "startale-aa-sdk";
 import { getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction } from "@rhinestone/module-sdk";
 import { isSessionEnabled } from "@rhinestone/module-sdk";
 import { toSmartSessionsModule } from "startale-aa-sdk";
@@ -47,6 +47,7 @@ import { toSmartSessionsModule } from "startale-aa-sdk";
 import type Table from "cli-table3";
 import CliTable from "cli-table3";
 import chalk from "chalk";
+import { createSmartAccountClient, smartSessionActions, toNexusAccount } from "@biconomy/abstractjs";
 
 
 const bundlerUrl = process.env.BUNDLER_URL;
@@ -77,7 +78,7 @@ type PaymasterRpcSchema = [
     },
 ];
 
-const chain = soneiumMinato;
+const chain = baseSepolia;
 const publicClient = createPublicClient({
   transport: http(),
   chain,
@@ -120,45 +121,46 @@ const main = async () => {
       console.log("eoaAddress", eoaAddress); 
 
       const smartAccountClient = createSmartAccountClient({
-          account: await toStartaleSmartAccount({ 
-          signer: signer as any, 
-          chain: chain as any,
-          transport: http() as any,
-          index: BigInt(10099556843667779)
+        account: await toNexusAccount({ 
+             signer: signer, 
+             chain,
+             transport: http(),
+             // index: BigInt(10099556443667779)
         }),
-        transport: http(bundlerUrl) as any,
+        bundlerUrl,
+        // transport: http(bundlerUrl) as any,
         mock: true,
-        client: publicClient as any,
-        paymaster: {
-            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-              pmDataParams.verificationGasLimit = BigInt(500000);
-              // console.log("Called getPaymasterData: ", pmDataParams);
-              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-              console.log("Paymaster Response: ", paymasterResponse);
-              return paymasterResponse;
-            },
-            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              // console.log("Called getPaymasterStubData: ", pmStubDataParams);
-              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-              console.log("Paymaster Stub Response: ", paymasterStubResponse);
-              return paymasterStubResponse;
-            },
-          },
-          paymasterContext: scsContext,
+        // client: publicClient as any,
+        // paymaster: {
+        //     async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
+        //       pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
+        //       pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
+        //       pmDataParams.verificationGasLimit = BigInt(500000);
+        //       // console.log("Called getPaymasterData: ", pmDataParams);
+        //       const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
+        //       console.log("Paymaster Response: ", paymasterResponse);
+        //       return paymasterResponse;
+        //     },
+        //     async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
+        //       // console.log("Called getPaymasterStubData: ", pmStubDataParams);
+        //       const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
+        //       console.log("Paymaster Stub Response: ", paymasterStubResponse);
+        //       return paymasterStubResponse;
+        //     },
+        //   },
+        // paymasterContext: scsContext,
         // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-          userOperation: {
+        userOperation: {
             estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
               return {
-                maxFeePerGas: BigInt(10000000),
-                maxPriorityFeePerGas: BigInt(10000000)
+                maxFeePerGas: BigInt(1000000000),
+                maxPriorityFeePerGas: BigInt(1000000000)
             }
             }
           }
       })
 
-      const address = smartAccountClient.account.address;
+      const address = await smartAccountClient.account.getAddress();
       console.log("address", address);
 
       // Note: Can keep fixed session owner
@@ -166,8 +168,7 @@ const main = async () => {
 
       // Create a smart sessions module for the user's account
       const sessionsModule = toSmartSessionsModule({
-        // account: smartAccountClient.account,
-        signer: sessionOwner as any,
+        signer: signer,
       })
 
       console.log("sessionsModule", sessionsModule);
@@ -195,26 +196,26 @@ const main = async () => {
         smartSessionActions()
       )
 
-      const trustAttestersAction = getTrustAttestersAction({
-        threshold: 1,
-        attesters: [
-          MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
-        ],
-      });
+      // const trustAttestersAction = getTrustAttestersAction({
+      //   threshold: 1,
+      //   attesters: [
+      //     MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
+      //   ],
+      // });
 
-      const trustAttestorsOpHash = await startaleSessionClient.sendUserOperation({
-        calls: [
-          {
-            to: trustAttestersAction.target,
-            data: trustAttestersAction.data,
-            value: BigInt(0),
-          }
-        ],
-      })
-      console.log("trustAttestorsOpHash", trustAttestorsOpHash);
+      // const trustAttestorsOpHash = await startaleSessionClient.sendUserOperation({
+      //   calls: [
+      //     {
+      //       to: trustAttestersAction.target,
+      //       data: trustAttestersAction.data,
+      //       value: BigInt(0),
+      //     }
+      //   ],
+      // })
+      // console.log("trustAttestorsOpHash", trustAttestorsOpHash);
 
-      const receipt = await startaleSessionClient.waitForUserOperationReceipt({ hash: trustAttestorsOpHash });
-      console.log("receipt", receipt);
+      // const receipt = await startaleSessionClient.waitForUserOperationReceipt({ hash: trustAttestorsOpHash });
+      // console.log("receipt", receipt);
 
       // Note: It uses sudo policy here but we can make use of uni action policy as well
 
@@ -236,8 +237,8 @@ const main = async () => {
 
 
 
-      const cachedSessionDetails = stringify(sessionDetails);
-      console.log("cachedSessionDetails", cachedSessionDetails);
+      // const cachedSessionDetails = stringify(sessionDetails);
+      // console.log("cachedSessionDetails", cachedSessionDetails);
 
       spinner.succeed(chalk.greenBright.bold.underline("Session created successfully with granted permissions"));
 
@@ -251,52 +252,51 @@ const main = async () => {
   
   
       // Now we will make use of Granted permissions
-      const parsedSessionDetails = JSON.parse(cachedSessionDetails);
-      console.log("parsedSessionDetails", parsedSessionDetails);
+      // const parsedSessionDetails = JSON.parse(cachedSessionDetails);
+      // console.log("parsedSessionDetails", parsedSessionDetails);
 
-      const isEnabled = await isSessionEnabled({
-        client: smartAccountClient.account.client as PublicClient,
-        account: {
-          type: "nexus", // Todo: Need to contribute on module sdk to support our smart account
-          address: smartAccountClient.account.address,
-          deployedOnChains: [chain.id]
-        },
-        permissionId: parsedSessionDetails.permissionId
-      })
-      console.log("is session Enabled", isEnabled);    
+      // const isEnabled = await isSessionEnabled({
+      //   client: smartAccountClient.account.client as PublicClient,
+      //   account: {
+      //     type: "nexus", // Todo: Need to contribute on module sdk to support our smart account
+      //     address: smartAccountClient.account.address,
+      //     deployedOnChains: [chain.id]
+      //   },
+      //   permissionId: sessionDetails.permissionId
+      // })
+      // console.log("is session Enabled", isEnabled);    
 
 
-      const emulatedAccount = await toStartaleSmartAccount({
-        accountAddress: smartAccountClient.account.address as Address,
-        signer: sessionOwner as any,
-        chain: chain as any,
-        transport: http() as any,
-        // index: BigInt(0)
+      const emulatedAccount = await toNexusAccount({
+        accountAddress: smartAccountClient.account.address,
+        signer: sessionOwner,
+        chain,
+        transport: http(),
       })
 
       const emulatedClient = createSmartAccountClient({
         account: emulatedAccount,
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
+        transport: http(bundlerUrl),
         mock: true,
-        paymaster: {
-          async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-            pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-            pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-            pmDataParams.verificationGasLimit = BigInt(500000);
-            // console.log("Called getPaymasterData: ", pmDataParams);
-            const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-            console.log("Paymaster Response: ", paymasterResponse);
-            return paymasterResponse;
-          },
-          async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-            // console.log("Called getPaymasterStubData: ", pmStubDataParams);
-            const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-            console.log("Paymaster Stub Response: ", paymasterStubResponse);
-            return paymasterStubResponse;
-          },
-        },
-        paymasterContext: scsContext,
+        client: publicClient as any,
+        // paymaster: {
+        //   async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
+        //     pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
+        //     pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
+        //     pmDataParams.verificationGasLimit = BigInt(500000);
+        //     // console.log("Called getPaymasterData: ", pmDataParams);
+        //     const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
+        //     console.log("Paymaster Response: ", paymasterResponse);
+        //     return paymasterResponse;
+        //   },
+        //   async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
+        //     // console.log("Called getPaymasterStubData: ", pmStubDataParams);
+        //     const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
+        //     console.log("Paymaster Stub Response: ", paymasterStubResponse);
+        //     return paymasterStubResponse;
+        //   },
+        // },
+        // paymasterContext: scsContext,
       // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
         userOperation: {
           estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
@@ -321,7 +321,7 @@ const main = async () => {
         calls: [{ to: counterContract, data: callData }],
         mode: "ENABLE_AND_USE"
       })
-      const receiptOne = await smartAccountClient.waitForUserOperationReceipt({
+      const receiptOne = await smartSessionsClient.waitForUserOperationReceipt({
         hash: userOpHashOne
       })
       console.log("receiptOne", receiptOne);
