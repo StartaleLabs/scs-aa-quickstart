@@ -11,7 +11,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@biconomy/abstractjs": "^1.0.3",
     "@rhinestone/module-sdk": "^0.2.7",
     "chalk": "^5.4.1",
     "cli-table3": "^0.6.5",
@@ -20,7 +19,7 @@
     "ink": "^5.1.0",
     "ora": "^8.2.0",
     "solady": "^0.1.8",
-    "startale-aa-sdk": "0.0.2",
+    "startale-aa-sdk": "0.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
     "viem": "^2.26.2"
