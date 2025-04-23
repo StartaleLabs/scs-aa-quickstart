@@ -37,7 +37,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 // import { erc7579Actions } from "permissionless/actions/erc7579";
 // import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, toStartaleSmartAccount } from "scs-smart-account-sdk";
+import { createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
 import type Table from "cli-table3";
 const CliTable = require("cli-table3") as typeof Table;

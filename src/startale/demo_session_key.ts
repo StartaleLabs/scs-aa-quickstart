@@ -39,10 +39,10 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 // import { erc7579Actions } from "permissionless/actions/erc7579";
 // import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, smartSessionActions, toStartaleSmartAccount } from "scs-smart-account-sdk";
+import { createSmartAccountClient, smartSessionActions, toStartaleSmartAccount } from "startale-aa-sdk";
 import { getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction } from "@rhinestone/module-sdk";
 import { isSessionEnabled } from "@rhinestone/module-sdk";
-import { toSmartSessionsModule } from "scs-smart-account-sdk";
+import { toSmartSessionsModule } from "startale-aa-sdk";
 
 import type Table from "cli-table3";
 import CliTable from "cli-table3";
@@ -124,9 +124,10 @@ const main = async () => {
           signer: signer as any, 
           chain: chain as any,
           transport: http() as any,
-          index: BigInt(1009955684366777)
+          index: BigInt(10099556843667779)
         }),
         transport: http(bundlerUrl) as any,
+        mock: true,
         client: publicClient as any,
         paymaster: {
             async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
@@ -341,3 +342,7 @@ const main = async () => {
 }
 
 main();
+
+
+// Note: very weird failure for USE_AND_ENABLE (enable mode)
+// https://dashboard.tenderly.co/livingrock7/project/simulator/4ed234fd-9c18-4251-82d4-09e4e9376b38/debugger?trace=0.1.2.5.3.1.2.0.1.3
