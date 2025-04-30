@@ -124,7 +124,7 @@ const main = async () => {
              signer: signer, 
              chain,
              transport: http(),
-             index: BigInt(9106893)
+             index: BigInt(9106893567)
         }),
         bundlerUrl,
         // transport: http(bundlerUrl) as any,
@@ -219,7 +219,7 @@ const main = async () => {
         spinner.succeed(chalk.greenBright.bold.underline("Smart Sessions Module already installed"));
       }
 
-      const nexusSessionClient = smartAccountClient.extend(
+      const startaleAccountSessionClient = smartAccountClient.extend(
         smartSessionCreateActions(sessionsModule)
       )
 
@@ -239,7 +239,7 @@ const main = async () => {
         }
       ]
 
-      const createSessionsResponse = await nexusSessionClient.grantPermission({
+      const createSessionsResponse = await startaleAccountSessionClient.grantPermission({
         sessionRequestedInfo
       })
       console.log("createSessionsResponse", createSessionsResponse);
@@ -290,7 +290,7 @@ const main = async () => {
     console.log("is session Enabled", isEnabled);
 
 
-    const smartSessionNexusClient = createSmartAccountClient({
+    const smartSessionAccountClient = createSmartAccountClient({
       account: await toStartaleSmartAccount({ 
            signer: sessionOwner, 
            accountAddress: sessionData.granter,
@@ -331,12 +331,12 @@ const main = async () => {
     })
 
     const usePermissionsModule = toSmartSessionsValidator({
-      account: smartSessionNexusClient.account,
+      account: smartSessionAccountClient.account,
       signer: sessionOwner,
       moduleData: parsedSessionData.moduleData
     })
 
-    const useSmartSessionNexusClient = smartSessionNexusClient.extend(
+    const useSmartSessionAccountClient = smartSessionAccountClient.extend(
       smartSessionUseActions(usePermissionsModule)
     )
 
@@ -346,7 +346,7 @@ const main = async () => {
       functionName: "count",
     });
 
-    const userOpHash = await useSmartSessionNexusClient.usePermission({
+    const userOpHash = await useSmartSessionAccountClient.usePermission({
       calls: [
         {
           to: counterContract,
