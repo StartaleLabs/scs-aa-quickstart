@@ -170,28 +170,6 @@ const main = async () => {
       // OWNABLE_VALIDATOR_ADDRESS=0x7C5F70297f194800D8cE49F87a6b29f8d88f38Ad
       // Or when we use sdk version ^0.0.10 as it is batched from within the sdk
 
-
-      // const trustAttestersAction = getTrustAttestersAction({
-      //   threshold: 1,
-      //   attesters: [
-      //     MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
-      //   ],
-      // });
-
-      // const trustAttestorsOpHash = await smartAccountClient.sendUserOperation({
-      //   calls: [
-      //     {
-      //       to: trustAttestersAction.target,
-      //       data: trustAttestersAction.data,
-      //       value: BigInt(0),
-      //     }
-      //   ],
-      // })
-      // console.log("trustAttestorsOpHash", trustAttestorsOpHash);
-
-      // const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: trustAttestorsOpHash });
-      // console.log("receipt for trusting attester", receipt);
-
       // Note: Can keep fixed session owner
       const sessionOwner = privateKeyToAccount(generatePrivateKey())
       console.log("session owner address ", sessionOwner.address);
