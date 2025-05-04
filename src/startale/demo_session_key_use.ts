@@ -124,7 +124,7 @@ const main = async () => {
              signer: signer, 
              chain,
              transport: http(),
-             index: BigInt(9106893567)
+             index: BigInt(9106893567910)
         }),
         bundlerUrl,
         // transport: http(bundlerUrl) as any,
@@ -165,26 +165,32 @@ const main = async () => {
       // First things first
       // If we use our own deployment or ENABLE mode then no need to trust attesters
 
-      const trustAttestersAction = getTrustAttestersAction({
-        threshold: 1,
-        attesters: [
-          MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
-        ],
-      });
+      // Trust attestors is not required when we use our custom addressses
+      // SMART_SESSIONS_MODULE_ADDRESS=0x716BC27e1b904331C58891cC3AB13889127189a7
+      // OWNABLE_VALIDATOR_ADDRESS=0x7C5F70297f194800D8cE49F87a6b29f8d88f38Ad
+      // Or when we use sdk version ^0.0.10 as it is batched from within the sdk
 
-      const trustAttestorsOpHash = await smartAccountClient.sendUserOperation({
-        calls: [
-          {
-            to: trustAttestersAction.target,
-            data: trustAttestersAction.data,
-            value: BigInt(0),
-          }
-        ],
-      })
-      console.log("trustAttestorsOpHash", trustAttestorsOpHash);
 
-      const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: trustAttestorsOpHash });
-      console.log("receipt for trusting attester", receipt);
+      // const trustAttestersAction = getTrustAttestersAction({
+      //   threshold: 1,
+      //   attesters: [
+      //     MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
+      //   ],
+      // });
+
+      // const trustAttestorsOpHash = await smartAccountClient.sendUserOperation({
+      //   calls: [
+      //     {
+      //       to: trustAttestersAction.target,
+      //       data: trustAttestersAction.data,
+      //       value: BigInt(0),
+      //     }
+      //   ],
+      // })
+      // console.log("trustAttestorsOpHash", trustAttestorsOpHash);
+
+      // const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: trustAttestorsOpHash });
+      // console.log("receipt for trusting attester", receipt);
 
       // Note: Can keep fixed session owner
       const sessionOwner = privateKeyToAccount(generatePrivateKey())
