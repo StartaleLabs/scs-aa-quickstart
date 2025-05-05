@@ -118,7 +118,7 @@ const main = async () => {
           signer: signer as any, 
           chain: chain as any,
           transport: http() as any,
-          index: BigInt(1093567)
+          index: BigInt(1093567910)
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any,
@@ -188,18 +188,19 @@ const main = async () => {
 
       // You can send them in any randomised order since both will follow different nonce "space" realm.
 
-      const promises = [
-        smartAccountClient.sendUserOperation({ 
-          calls: [
-            {
-              to: counterContract as Address,
-              value: BigInt(0),
-              data: callData,
+      const hash1 = await smartAccountClient.sendUserOperation({ 
+        calls: [
+          {
+            to: counterContract as Address,
+            value: BigInt(0),
+            data: callData,
             },
           ],
           nonce: myNonce1
-        }),
-        smartAccountClient.sendUserOperation({ 
+        })
+        
+        
+      const hash2 = await smartAccountClient.sendUserOperation({ 
           calls: [
             {
               to: counterContract as Address,
@@ -209,9 +210,6 @@ const main = async () => {
           ],
           nonce: myNonce2
         })
-      ];
-      
-      const [hash1, hash2] = await Promise.all(promises);
 
       const receipt1 = await smartAccountClient.waitForUserOperationReceipt({ hash: hash1 }); 
       console.log("receipt1", receipt1);
