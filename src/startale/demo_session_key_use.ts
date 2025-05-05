@@ -93,6 +93,9 @@ const paymasterClient = createPaymasterClient({
   rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
+// SmartSessions deployment custom (useRegistry : false for enableSessions method. otherwise for USE mode it's false so it's ok)
+// https://soneium-minato.blockscout.com/address/0x8e7c945c11ab0be83af5c0264856753faf7f5cd8?tab=contract
+
 const signer = privateKeyToAccount(privateKey as Hex);
 
 const entryPoint = {
@@ -121,10 +124,10 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
         account: await toStartaleSmartAccount({ 
-             signer: signer, 
-             chain,
-             transport: http(),
-             index: BigInt(9106893567910)
+             signer: signer as any, 
+             chain: chain as any,
+             transport: http() as any,
+             index: BigInt(910689356791005608794455) 
         }),
         bundlerUrl,
         // transport: http(bundlerUrl) as any,
@@ -162,6 +165,24 @@ const main = async () => {
       const address = await smartAccountClient.account.getAddress();
       console.log("address", address);
 
+      // Construct call data
+      const callDataCounter = encodeFunctionData({
+        abi: CounterAbi,
+        functionName: "count",
+      });
+
+      const hash = await smartAccountClient.sendUserOperation({ 
+        calls: [
+          {
+            to: counterContract as Address,
+            value: BigInt(0),
+            data: callDataCounter,
+          },
+        ],
+      }); 
+      const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
+      console.log("receipt", receipt);
+
       // First things first
       // If we use our own deployment or ENABLE mode then no need to trust attesters
 
@@ -177,10 +198,14 @@ const main = async () => {
       // Create a smart sessions module for the user's account
       const sessionsModule = toSmartSessionsValidator({
         account: smartAccountClient.account,
-        signer: sessionOwner,
+        signer: sessionOwner as any,
       })
 
+      sessionsModule.address = "0x8e7c945C11Ab0be83Af5c0264856753FAf7f5Cd8" as Address;
+
       // console.log("sessionsModule", sessionsModule);
+
+      sessionsModule.moduleInitData.address = "0x8e7c945C11Ab0be83Af5c0264856753FAf7f5Cd8" as Address;
 
       // Review
       const isInstalledBefore = await smartAccountClient.isModuleInstalled({
@@ -276,10 +301,10 @@ const main = async () => {
 
     const smartSessionAccountClient = createSmartAccountClient({
       account: await toStartaleSmartAccount({ 
-           signer: sessionOwner, 
-           accountAddress: sessionData.granter,
-           chain,
-           transport: http()
+           signer: sessionOwner as any, 
+           accountAddress: sessionData.granter as Address,
+           chain: chain as any,
+           transport: http() as any,
       }),
       bundlerUrl,
       // transport: http(bundlerUrl) as any,
@@ -316,7 +341,7 @@ const main = async () => {
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner,
+      signer: sessionOwner as any,
       moduleData: parsedSessionData.moduleData
     })
 
