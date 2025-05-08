@@ -19,7 +19,7 @@
     "ink": "^5.1.0",
     "ora": "^8.2.0",
     "solady": "^0.1.8",
-    "startale-aa-sdk": "0.0.10",
+    "startale-aa-sdk": "=0.0.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
     "viem": "^2.23.2"
