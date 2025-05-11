@@ -1,10 +1,23 @@
 {
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"],
-  "target": "esnext",
-  "module": "esnext",
-  "resolveJsonModule": true,
   "compilerOptions": {
-    "strict": true
-  }
+    "target": "esnext",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "startale-aa-sdk": ["./node_modules/startale-aa-sdk/dist/_types"]
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/startale-aa-sdk/dist/_types",
+      "./src/types"
+    ]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }
