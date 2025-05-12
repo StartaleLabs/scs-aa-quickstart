@@ -99,7 +99,7 @@ const entryPoint = {
 };
 
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, policyId: "sudo" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
