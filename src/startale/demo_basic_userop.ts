@@ -95,7 +95,10 @@ const entryPoint = {
 };
 
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
+// pm_1 is for postpaid pm for local db
+// pm_test is is for dev env 
+// pm_2 is fo prepaid pm with local db
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_2" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -136,6 +139,9 @@ const main = async () => {
               console.log("Called getPaymasterStubData: ", pmStubDataParams);
               const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
               console.log("Paymaster Stub Response: ", paymasterStubResponse);
+              // Review: work on this so we do not have to hardcode
+              paymasterStubResponse.paymasterPostOpGasLimit = BigInt(100000);
+              paymasterStubResponse.paymasterVerificationGasLimit = BigInt(200000);
               return paymasterStubResponse;
             },
           },
