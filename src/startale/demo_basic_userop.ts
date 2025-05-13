@@ -98,7 +98,7 @@ const entryPoint = {
 // pm_1 is for postpaid pm for local db
 // pm_test is is for dev env 
 // pm_2 is fo prepaid pm with local db
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_2" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
