@@ -4,6 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "npx ts-node ./src/demo_simple.ts",
+    "start-basic": "npx tsx ./src/startale/demo_basic_userop.ts",
+    "start-basic-trimmed": "npx tsx ./src/startale/demo_basic_userop_trimmed.ts",
     "kernel": "npx ts-node ./src/demo_kernel.ts"
   },
   "keywords": [],
