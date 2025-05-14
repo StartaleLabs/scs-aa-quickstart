@@ -9,16 +9,12 @@ import {
   rpcSchema,
 } from "viem";
 import {
-  type EntryPointVersion,
   type GetPaymasterDataParameters,
   type PrepareUserOperationRequest,
-  createBundlerClient,
   createPaymasterClient,
-  entryPoint07Address,
 } from "viem/account-abstraction";
 import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
-import { Counter as CounterAbi } from "../abi/Counter";
 
 import {
   createSmartAccountClient,
@@ -26,11 +22,12 @@ import {
 } from "startale-aa-sdk";
 
 import chalk from "chalk";
+import { demoItemAbi } from "src/abi/DemoItem";
 
 const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
-const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+const demoItemContract = process.env.DEMO_ITEM_CONTRACT_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error(
@@ -87,7 +84,6 @@ const calculatePercentile = (values: bigint[], percentile: number): bigint => {
   return sorted[Math.max(0, index)];
 };
 
-// Function to calculate average with proper BigInt handling
 const calculateAverage = (values: bigint[]): bigint => {
   if (values.length === 0) return BigInt(0);
   console.log(values);
@@ -97,19 +93,17 @@ const calculateAverage = (values: bigint[]): bigint => {
   return sum / BigInt(values.length);
 };
 
-// Function to find min with proper BigInt handling
 const findMin = (values: bigint[]): bigint => {
   return values.reduce((a, b) => (a < b ? a : b), values[0] || BigInt(0));
 };
 
-// Function to find max with proper BigInt handling
 const findMax = (values: bigint[]): bigint => {
   return values.reduce((a, b) => (a > b ? a : b), values[0] || BigInt(0));
 };
 
 const main = async () => {
   const spinner = ora({ spinner: "bouncingBar" });
-  const NUM_ITERATIONS = 1; // Number of times to repeat the transaction
+  const NUM_ITERATIONS = 5; // Number of times to repeat the transaction
 
   try {
     spinner.start("Initializing smart account...");
@@ -167,39 +161,64 @@ const main = async () => {
       },
     });
 
-    const address = smartAccountClient.account.address;
-    console.log("Smart Account Address:", address);
+    const smartAccountAddress = smartAccountClient.account.address;
+    console.log("Smart Account Address:", smartAccountAddress);
 
-    // Arrays to store gas metrics
-    const effectiveGasPrices: bigint[] = [];
-
-    // Construct call data once
-    const callData = encodeFunctionData({
-      abi: CounterAbi,
-      functionName: "count",
+    const actualGasCosts: bigint[] = [];
+    const randomMetadataId = Math.floor(Math.random() * 2599);
+    const currentSupply = await publicClient.readContract({
+      address: demoItemContract as Address,
+      abi: demoItemAbi,
+      functionName: "totalSupply",
     });
+    console.log(`Current total supply: ${currentSupply}`);
 
     for (let i = 0; i < NUM_ITERATIONS; i++) {
       spinner.text = `Executing transaction ${i + 1}/${NUM_ITERATIONS}...`;
 
-      // Get the user operation before sending
-      const userOperation = await smartAccountClient.prepareUserOperation({
+      const mintData = encodeFunctionData({
+        abi: demoItemAbi,
+        functionName: "safeMint",
+        args: [smartAccountAddress, randomMetadataId + i],
+      });
+
+      console.log("Signer address: ", signer.address);
+      const mintUserOp = await smartAccountClient.prepareUserOperation({
         calls: [
           {
-            to: counterContract as Address,
-            value: BigInt(0),
-            data: callData,
+            to: demoItemContract as Address,
+            data: mintData,
           },
         ],
       });
 
-      // Now send the user operation
+      const transferData = encodeFunctionData({
+        abi: demoItemAbi,
+        functionName: "safeTransferFrom",
+        args: [
+          smartAccountAddress,
+          "0x3DC120168Ae0F3Cd10fE5DcC8E344E4fe90F9448",
+          (currentSupply as bigint) - BigInt(1) + BigInt(i),
+        ],
+      });
+      const transferUserOp = await smartAccountClient.prepareUserOperation({
+        calls: [
+          {
+            to: demoItemContract as Address,
+            data: transferData,
+          },
+        ],
+      });
+
       const hash = await smartAccountClient.sendUserOperation({
         calls: [
           {
-            to: counterContract as Address,
-            value: BigInt(0),
-            data: callData,
+            to: demoItemContract as Address,
+            data: mintData,
+          },
+          {
+            to: demoItemContract as Address,
+            data: transferData,
           },
         ],
       });
@@ -207,8 +226,8 @@ const main = async () => {
       const receipt = await smartAccountClient.waitForUserOperationReceipt({
         hash,
       });
-      console.log('Receipt: ',receipt);
-      effectiveGasPrices.push(receipt.receipt.effectiveGasPrice);
+      console.log("Receipt: ", receipt);
+      actualGasCosts.push(receipt.actualGasCost);
 
       console.log(`Transaction ${i + 1} completed`);
     }
@@ -227,9 +246,7 @@ const main = async () => {
       };
     };
 
-    const stats = [
-      calculateStats(effectiveGasPrices, "Effective Gas Cost"),
-    ];
+    const stats = [calculateStats(actualGasCosts, "Actual Gas Cost")];
 
     // Display results
     console.log("\nGas Fee Statistics (90th percentile):");

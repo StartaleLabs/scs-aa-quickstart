@@ -1,22 +1,19 @@
-pragma solidity ^0.5.0;
+// contracts/GameItem.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721Full.sol";
-import "@openzeppelin/contracts/drafts/Counters.sol";
+import {ERC721URIStorage, ERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-contract GameItem is ERC721Full {
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+contract GameItem is ERC721URIStorage {
+    uint256 private _nextTokenId;
 
-    constructor() ERC721Full("GameItem", "ITM") public {
-    }
+    constructor() ERC721("GameItem", "ITM") {}
 
     function awardItem(address player, string memory tokenURI) public returns (uint256) {
-        _tokenIds.increment();
+        uint256 tokenId = _nextTokenId++;
+        _mint(player, tokenId);
+        _setTokenURI(tokenId, tokenURI);
 
-        uint256 newItemId = _tokenIds.current();
-        _mint(player, newItemId);
-        _setTokenURI(newItemId, tokenURI);
-
-        return newItemId;
+        return tokenId;
     }
 }
