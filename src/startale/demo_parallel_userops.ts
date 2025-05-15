@@ -38,7 +38,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 // import { erc7579Actions } from "permissionless/actions/erc7579";
 // import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -82,9 +82,8 @@ const bundlerClient = createBundlerClient({
   transport: http(bundlerUrl),
 });
 
-const paymasterClient = createPaymasterClient({
+const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -122,37 +121,8 @@ const main = async () => {
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any,
-        paymaster: {
-            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-              pmDataParams.verificationGasLimit = BigInt(500000);
-              console.log("Called getPaymasterData: ", pmDataParams);
-              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-              console.log("Paymaster Response: ", paymasterResponse);
-              return paymasterResponse;
-            },
-            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              console.log("Called getPaymasterStubData: ", pmStubDataParams);
-              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-              console.log("Paymaster Stub Response: ", paymasterStubResponse);
-              return paymasterStubResponse;
-            },
-          },
-          paymasterContext: scsContext,
-        // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-          userOperation: {
-            estimateFeesPerGas: async ({ account, bundlerClient, userOperation }: { 
-              account: any; 
-              bundlerClient: any; 
-              userOperation: any;
-            }) => {
-              return {
-                maxFeePerGas: BigInt(10000000),
-                maxPriorityFeePerGas: BigInt(10000000)
-              }
-            }
-          }
+        paymaster: scsPaymasterClient,
+        paymasterContext: scsContext,
       })
 
       const address = smartAccountClient.account.address;

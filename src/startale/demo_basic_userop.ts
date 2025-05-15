@@ -32,13 +32,10 @@ import {
   type BundlerClient,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -82,10 +79,10 @@ const bundlerClient = createBundlerClient({
   transport: http(bundlerUrl),
 });
 
-const paymasterClient = createPaymasterClient({
-  transport: http(paymasterUrl),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
+const scsPaymasterClient = createSCSPaymasterClient({
+  transport: http(paymasterUrl) as any
 });
+
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
@@ -94,11 +91,14 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
+// Review
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+
 // pm_1 is for postpaid pm for local db
-// pm_test is is for dev env 
+// pm_test is is for dev env for postpaid paymaster
 // pm_2 is fo prepaid pm with local db
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
+// pm_test_self_funded is mapped to self funded paymaster
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_self_funded" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -118,47 +118,15 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer as any, 
-          chain: chain as any,
-          transport: http() as any,
-          index: BigInt(109360608)
-        }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
-        paymaster: {
-            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-              pmDataParams.verificationGasLimit = BigInt(500000);
-              console.log("Called getPaymasterData: ", pmDataParams);
-              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-              console.log("Paymaster Response: ", paymasterResponse);
-              return paymasterResponse;
-            },
-            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              console.log("Called getPaymasterStubData: ", pmStubDataParams);
-              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-              console.log("Paymaster Stub Response: ", paymasterStubResponse);
-              // Review: work on this so we do not have to hardcode
-              paymasterStubResponse.paymasterPostOpGasLimit = BigInt(100000);
-              paymasterStubResponse.paymasterVerificationGasLimit = BigInt(200000);
-              return paymasterStubResponse;
-            },
-          },
+               signer: signer, 
+               chain: chain,
+               transport: http(),
+               index: BigInt(1062874420)
+          }),
+          transport: http(bundlerUrl),
+          client: publicClient,
+          paymaster: scsPaymasterClient,
           paymasterContext: scsContext,
-        // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-          userOperation: {
-            estimateFeesPerGas: async ({ account, bundlerClient, userOperation }: { 
-              account: any; 
-              bundlerClient: any; 
-              userOperation: any;
-            }) => {
-              return {
-                maxFeePerGas: BigInt(10000000),
-                maxPriorityFeePerGas: BigInt(10000000)
-              }
-            }
-          }
       })
 
       const address = smartAccountClient.account.address;
