@@ -227,7 +227,7 @@ const main = async () => {
         hash,
       });
       console.log("Receipt: ", receipt);
-      actualGasCosts.push(receipt.actualGasCost);
+      actualGasCosts.push(BigInt(receipt.receipt.cumulativeGasUsed) * BigInt(receipt.receipt.effectiveGasPrice));
 
       console.log(`Transaction ${i + 1} completed`);
     }
