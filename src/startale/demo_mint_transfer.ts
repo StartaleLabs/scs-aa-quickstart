@@ -35,27 +35,6 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
   );
 }
 
-type PaymasterRpcSchema = [
-  {
-    Method: "pm_getPaymasterData";
-    Parameters: [
-      PrepareUserOperationRequest,
-      { mode: string; calculateGasLimits: boolean }
-    ];
-    ReturnType: {
-      callGasLimit: bigint;
-      verificationGasLimit: bigint;
-      preVerificationGas: bigint;
-      paymasterVerificationGasLimit: bigint;
-      paymasterPostOpGasLimit: bigint;
-      maxFeePerGas: bigint;
-      maxPriorityFeePerGas: bigint;
-      paymasterData: string;
-      paymaster: string;
-    };
-  }
-];
-
 const chain = soneiumMinato;
 const publicClient = createPublicClient({
   transport: http(),
@@ -64,7 +43,6 @@ const publicClient = createPublicClient({
 
 const paymasterClient = createPaymasterClient({
   transport: http(paymasterUrl),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -103,7 +81,7 @@ const findMax = (values: bigint[]): bigint => {
 
 const main = async () => {
   const spinner = ora({ spinner: "bouncingBar" });
-  const NUM_ITERATIONS = 5; // Number of times to repeat the transaction
+  const NUM_ITERATIONS = 1;
 
   try {
     spinner.start("Initializing smart account...");
@@ -234,7 +212,6 @@ const main = async () => {
 
     spinner.succeed("All transactions completed");
 
-    // Calculate statistics
     const calculateStats = (values: bigint[], name: string) => {
       return {
         metric: name,
@@ -248,7 +225,6 @@ const main = async () => {
 
     const stats = [calculateStats(actualGasCosts, "Actual Gas Cost")];
 
-    // Display results
     console.log("\nGas Fee Statistics (90th percentile):");
     console.log("====================================");
     console.table(

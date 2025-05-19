@@ -1,0 +1,18 @@
+@url=https://public.paymaster.scs.startale.com/v1
+@ENTRY_POINT_ADDRESS=0x0000000071727De22E5E9d8BAf0edAc6f37da032
+###
+POST {{url}}
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "pm_getPaymasterData",
+  "params": [
+    "{{ENTRY_POINT_ADDRESS}}",
+    "0x79a",
+    {
+      "calculateGasLimits": true,
+    }
+  ]
+}

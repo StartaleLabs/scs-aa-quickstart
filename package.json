@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "npx ts-node ./src/demo_simple.ts",
+    "start": "npx tsx ./src/startale/demo.ts",
     "start-basic": "npx tsx ./src/startale/demo_basic_userop.ts",
     "start-mint-transfer": "npx tsx ./src/startale/demo_mint_transfer.ts",
     "kernel": "npx ts-node ./src/demo_kernel.ts"
