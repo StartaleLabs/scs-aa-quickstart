@@ -81,8 +81,9 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
+// Review:
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_self_funded" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -105,23 +106,12 @@ const main = async () => {
              signer: signer, 
              chain,
              transport: http(),
-             index: BigInt(62567906088812)
+             index: BigInt(8152)
         }),
-        bundlerUrl,
-        // transport: http(bundlerUrl) as any,
-        mock: true,
-        // client: publicClient as any,
+        transport: http(bundlerUrl),
+        client: publicClient,
         paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
-        // Review : we still need this for this script
-        userOperation: {
-          estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
-            return {
-              maxFeePerGas: BigInt(10000000),
-              maxPriorityFeePerGas: BigInt(10000000)
-          }
-          }
-        }
       })
 
       const address = await smartAccountClient.account.getAddress();
@@ -145,6 +135,8 @@ const main = async () => {
         signer: sessionOwner,
       })
 
+      const smartSessionsToInstall = getSmartSessionsValidator({})
+      // console.log("Smart Sessions: ", smartSessionsToInstall);
       // console.log("sessionsModule", sessionsModule);
 
       // Review
@@ -155,7 +147,7 @@ const main = async () => {
 
       if(!isInstalledBefore) {
         const installModuleHash = await smartAccountClient.installModule({
-          module: sessionsModule.moduleInitData
+          module: smartSessionsToInstall //sessionsModule.moduleInitData
         });
         console.log("installModuleHash", installModuleHash);
 
@@ -244,29 +236,28 @@ const main = async () => {
       account: await toStartaleSmartAccount({ 
            signer: sessionOwner, 
            accountAddress: sessionData.granter,
-           chain,
+           chain: chain,
            transport: http()
       }),
-      bundlerUrl,
-      // transport: http(bundlerUrl) as any,
+      transport: http(bundlerUrl),
+      client: publicClient,
       mock: true,
-      // client: publicClient as any,
       paymaster: scsPaymasterClient,
       paymasterContext: scsContext,
       // Review : we still need this for this script
-      userOperation: {
-        estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
-          return {
-            maxFeePerGas: BigInt(10000000),
-            maxPriorityFeePerGas: BigInt(10000000)
-        }
-        }
-      }
+      // userOperation: {
+      //   estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
+      //     return {
+      //       maxFeePerGas: BigInt(10000000),
+      //       maxPriorityFeePerGas: BigInt(10000000)
+      //   }
+      //   }
+      // }
     })
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner,
+      signer: sessionOwner as any,
       moduleData: parsedSessionData.moduleData
     })
 

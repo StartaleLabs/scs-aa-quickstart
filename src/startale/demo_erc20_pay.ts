@@ -77,7 +77,9 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
-const tokenAddress = "0x26e6f7c7047252DdE3dcBF26AA492e6a264Db655";
+// Todo:
+// Use from env and latest addresses
+const tokenAddress = "0x26e6f7c7047252DdE3dcBF26AA492e6a264Db655"; // ASTR Minato
 const paymasterAddress = "0xcef7da45a09b17d77e33fc32e5d24ef1d30b68e3";
 
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
@@ -104,7 +106,7 @@ const main = async () => {
           signer: signer as any, 
           chain: chain as any,
           transport: http() as any,
-          index: BigInt(1093)
+          index: BigInt(10983)
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any,
