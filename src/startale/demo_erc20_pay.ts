@@ -34,11 +34,8 @@ import {
   type BundlerClient,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
@@ -50,6 +47,8 @@ const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+const tokenAddress = process.env.ASTR_MINATO_ADDRESS;
+const paymasterAddress = process.env.TOKEN_PAYMASTER_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -77,11 +76,7 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
-// Todo:
-// Use from env and latest addresses
-const tokenAddress = "0x26e6f7c7047252DdE3dcBF26AA492e6a264Db655"; // ASTR Minato
-const paymasterAddress = "0xcef7da45a09b17d77e33fc32e5d24ef1d30b68e3";
-
+// Review
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
 const scsContext = { calculateGasLimits: true, token: tokenAddress }
 
@@ -103,19 +98,26 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer as any, 
-          chain: chain as any,
-          transport: http() as any,
+          signer: signer, 
+          chain,
+          transport: http(),
           index: BigInt(10983)
         }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
+        transport: http(bundlerUrl),
+        client: publicClient,
         paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
       })
 
       const address = smartAccountClient.account.address;
       console.log("address", address);
+
+      /// Steps to Use Token Paymaster
+      /// 1. Prepare User Operation
+      /// 2. Get Quote [ getTokenPaymasterQuotes ]
+      /// 3. Send User Operation with chosen quote and required approval amount as custom approval amount [ sendTokenPaymasterUserOp]
+      /// Note: When we use sendTokenPaymasterUserOp it appends the approval internally
+      /// We can also do this manually by providing max approval and batching from client side (as it is done in the commented code)
 
       const counterStateBefore = (await publicClient.readContract({
         address: counterContract,
@@ -130,24 +132,57 @@ const main = async () => {
         functionName: "count",
       });
 
-      const hash = await smartAccountClient.sendUserOperation({ 
+      const preparedUserOp = await smartAccountClient.prepareUserOperation({
         calls: [
           {
             to: counterContract as Address,
             value: BigInt(0),
             data: callData,
-          },
+          }
+        ]
+      })
+
+      const quotes = await scsPaymasterClient.getTokenPaymasterQuotes({ userOp: preparedUserOp, chainId: toHex(chain.id) })
+      console.log("quotes", quotes);
+
+      // Manually appending max approval and using paymaster client, without using calls to get fee quotes and the decorator sendTokenPaymasterUserOp 
+
+      // const hash = await smartAccountClient.sendUserOperation({ 
+      //   calls: [
+      //     {
+      //       to: counterContract as Address,
+      //       value: BigInt(0),
+      //       data: callData,
+      //     },
+      //     {
+      //       to: tokenAddress as Address,
+      //       value: BigInt(0),
+      //       data: encodeFunctionData({
+      //           abi: erc20Abi,
+      //           functionName: "approve",
+      //           args: [paymasterAddress, maxUint256]
+      //       })
+      //     }
+      //   ],
+      // }); 
+      // const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
+      // console.log("receipt", receipt);
+
+
+      const hash = await smartAccountClient.sendTokenPaymasterUserOp({
+        calls: [
           {
-            to: tokenAddress as Address,
+            to: counterContract as Address,
             value: BigInt(0),
-            data: encodeFunctionData({
-                abi: erc20Abi,
-                functionName: "approve",
-                args: [paymasterAddress, maxUint256]
-            })
+            data: callData,
           }
         ],
-      }); 
+        feeTokenAddress: tokenAddress as Address,
+        // You can eother match by ASTR token address or use the one you know from response. 4th element in array in this case.
+        customApprovalAmount: BigInt(quotes.feeQuotes[3].requiredAmount)
+      })
+      console.log("hash", hash);
+
       const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
       console.log("receipt", receipt);
     } catch (error) {

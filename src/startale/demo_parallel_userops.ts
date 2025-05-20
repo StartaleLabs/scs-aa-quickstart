@@ -114,13 +114,13 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer as any, 
-          chain: chain as any,
-          transport: http() as any,
-          index: BigInt(1093567910)
+          signer: signer, 
+          chain,
+          transport: http(),
+          index: BigInt(106910)
         }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
+        transport: http(bundlerUrl),
+        client: publicClient,
         paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
       })
@@ -142,6 +142,8 @@ const main = async () => {
         abi: CounterAbi,
         functionName: "count",
       });
+
+      // Note: please note to use this only for a deployed smart account.
 
       const myNonce1 = await smartAccountClient.account.getNonce({
         key: 100n // can be any random number. this is your nonceSpace or batchId
