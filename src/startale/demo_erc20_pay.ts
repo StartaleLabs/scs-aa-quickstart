@@ -168,6 +168,7 @@ const main = async () => {
       // const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
       // console.log("receipt", receipt);
 
+      // Before this please make sure to send sfee tokens to counterfactual smart account address.
 
       const hash = await smartAccountClient.sendTokenPaymasterUserOp({
         calls: [
