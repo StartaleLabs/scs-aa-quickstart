@@ -34,13 +34,10 @@ import {
   type BundlerClient,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -50,28 +47,12 @@ const bundlerUrl = process.env.BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+const tokenAddress = process.env.ASTR_MINATO_ADDRESS;
+const paymasterAddress = process.env.TOKEN_PAYMASTER_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
-
-type PaymasterRpcSchema = [
-    {
-      Method: "pm_getPaymasterData";
-      Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
-      ReturnType: {
-        callGasLimit: bigint;
-        verificationGasLimit: bigint;
-        preVerificationGas: bigint;
-        paymasterVerificationGasLimit: bigint;
-        paymasterPostOpGasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        paymasterData: string;
-        paymaster: string;
-      };
-    },
-];
 
 const chain = soneiumMinato;
 const publicClient = createPublicClient({
@@ -84,9 +65,8 @@ const bundlerClient = createBundlerClient({
   transport: http(bundlerUrl),
 });
 
-const paymasterClient = createPaymasterClient({
+const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -96,9 +76,7 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
-const tokenAddress = "0x26e6f7c7047252DdE3dcBF26AA492e6a264Db655";
-const paymasterAddress = "0xcef7da45a09b17d77e33fc32e5d24ef1d30b68e3";
-
+// Review
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
 const scsContext = { calculateGasLimits: true, token: tokenAddress }
 
@@ -120,50 +98,26 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer as any, 
-          chain: chain as any,
-          transport: http() as any,
-          index: BigInt(1093)
+          signer: signer, 
+          chain,
+          transport: http(),
+          index: BigInt(10983)
         }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
-        paymaster: {
-            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-              pmDataParams.verificationGasLimit = BigInt(500000);
-              console.log("Called getPaymasterData: ", pmDataParams);
-              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-              console.log("Paymaster Response: ", paymasterResponse);
-              return paymasterResponse;
-            },
-            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              console.log("Called getPaymasterStubData: ", pmStubDataParams);
-              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-              console.log("Paymaster Stub Response: ", paymasterStubResponse);
-              paymasterStubResponse.paymasterPostOpGasLimit = BigInt(100000);
-              paymasterStubResponse.paymasterVerificationGasLimit = BigInt(200000);
-              return paymasterStubResponse;
-            },
-          },
-          paymasterContext: scsContext,
-        // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-          userOperation: {
-            estimateFeesPerGas: async ({ account, bundlerClient, userOperation }: { 
-              account: any; 
-              bundlerClient: any; 
-              userOperation: any;
-            }) => {
-              return {
-                maxFeePerGas: BigInt(10000000),
-                maxPriorityFeePerGas: BigInt(10000000)
-              }
-            }
-          }
+        transport: http(bundlerUrl),
+        client: publicClient,
+        paymaster: scsPaymasterClient,
+        paymasterContext: scsContext,
       })
 
       const address = smartAccountClient.account.address;
       console.log("address", address);
+
+      /// Steps to Use Token Paymaster
+      /// 1. Prepare User Operation
+      /// 2. Get Quote [ getTokenPaymasterQuotes ]
+      /// 3. Send User Operation with chosen quote and required approval amount as custom approval amount [ sendTokenPaymasterUserOp]
+      /// Note: When we use sendTokenPaymasterUserOp it appends the approval internally
+      /// We can also do this manually by providing max approval and batching from client side (as it is done in the commented code)
 
       const counterStateBefore = (await publicClient.readContract({
         address: counterContract,
@@ -178,24 +132,58 @@ const main = async () => {
         functionName: "count",
       });
 
-      const hash = await smartAccountClient.sendUserOperation({ 
+      const preparedUserOp = await smartAccountClient.prepareUserOperation({
         calls: [
           {
             to: counterContract as Address,
             value: BigInt(0),
             data: callData,
-          },
+          }
+        ]
+      })
+
+      const quotes = await scsPaymasterClient.getTokenPaymasterQuotes({ userOp: preparedUserOp, chainId: toHex(chain.id) })
+      console.log("quotes", quotes);
+
+      // Manually appending max approval and using paymaster client, without using calls to get fee quotes and the decorator sendTokenPaymasterUserOp 
+
+      // const hash = await smartAccountClient.sendUserOperation({ 
+      //   calls: [
+      //     {
+      //       to: counterContract as Address,
+      //       value: BigInt(0),
+      //       data: callData,
+      //     },
+      //     {
+      //       to: tokenAddress as Address,
+      //       value: BigInt(0),
+      //       data: encodeFunctionData({
+      //           abi: erc20Abi,
+      //           functionName: "approve",
+      //           args: [paymasterAddress, maxUint256]
+      //       })
+      //     }
+      //   ],
+      // }); 
+      // const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
+      // console.log("receipt", receipt);
+
+      // Before this please make sure to send sfee tokens to counterfactual smart account address.
+
+      const hash = await smartAccountClient.sendTokenPaymasterUserOp({
+        calls: [
           {
-            to: tokenAddress as Address,
+            to: counterContract as Address,
             value: BigInt(0),
-            data: encodeFunctionData({
-                abi: erc20Abi,
-                functionName: "approve",
-                args: [paymasterAddress, maxUint256]
-            })
+            data: callData,
           }
         ],
-      }); 
+        feeTokenAddress: tokenAddress as Address,
+        // You can eother match by ASTR token address or use the one you know from response. 4th element in array in this case.
+        customApprovalAmount: BigInt(quotes.feeQuotes[3].requiredAmount)
+      })
+      console.log("hash", hash);
+
       const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
       console.log("receipt", receipt);
     } catch (error) {

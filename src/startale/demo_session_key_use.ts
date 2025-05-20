@@ -39,7 +39,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 // import { erc7579Actions } from "permissionless/actions/erc7579";
 // import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, smartSessionUseActions, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, smartSessionUseActions, toStartaleSmartAccount } from "startale-aa-sdk";
 import { getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction, SmartSessionMode } from "@rhinestone/module-sdk";
 import { isSessionEnabled } from "@rhinestone/module-sdk";
 import { toSmartSessionsValidator } from "startale-aa-sdk";
@@ -59,24 +59,6 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
 
-type PaymasterRpcSchema = [
-    {
-      Method: "pm_getPaymasterData";
-      Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
-      ReturnType: {
-        callGasLimit: bigint;
-        verificationGasLimit: bigint;
-        preVerificationGas: bigint;
-        paymasterVerificationGasLimit: bigint;
-        paymasterPostOpGasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        paymasterData: string;
-        paymaster: string;
-      };
-    },
-];
-
 const chain = soneiumMinato;
 const publicClient = createPublicClient({
   transport: http(),
@@ -88,9 +70,8 @@ const bundlerClient = createBundlerClient({
   transport: http(bundlerUrl),
 });
 
-const paymasterClient = createPaymasterClient({
+const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -100,8 +81,9 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
+// Review:
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, policyId: "sudo" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_self_funded" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -124,39 +106,12 @@ const main = async () => {
              signer: signer, 
              chain,
              transport: http(),
-             index: BigInt(9106893567910)
+             index: BigInt(812220)
         }),
-        bundlerUrl,
-        // transport: http(bundlerUrl) as any,
-        mock: true,
-        // client: publicClient as any,
-        paymaster: {
-            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-              pmDataParams.verificationGasLimit = BigInt(500000);
-              // console.log("Called getPaymasterData: ", pmDataParams);
-              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-              console.log("Paymaster Response: ", paymasterResponse);
-              return paymasterResponse;
-            },
-            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              // console.log("Called getPaymasterStubData: ", pmStubDataParams);
-              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-              console.log("Paymaster Stub Response: ", paymasterStubResponse);
-              return paymasterStubResponse;
-            },
-          },
+        transport: http(bundlerUrl),
+        client: publicClient,
+        paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
-        // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-        userOperation: {
-            estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
-              return {
-                maxFeePerGas: BigInt(10000000),
-                maxPriorityFeePerGas: BigInt(10000000)
-            }
-            }
-          }
       })
 
       const address = await smartAccountClient.account.getAddress();
@@ -180,6 +135,8 @@ const main = async () => {
         signer: sessionOwner,
       })
 
+      const smartSessionsToInstall = getSmartSessionsValidator({})
+      // console.log("Smart Sessions: ", smartSessionsToInstall);
       // console.log("sessionsModule", sessionsModule);
 
       // Review
@@ -190,8 +147,9 @@ const main = async () => {
 
       if(!isInstalledBefore) {
         const installModuleHash = await smartAccountClient.installModule({
-          module: sessionsModule.moduleInitData
+          module: smartSessionsToInstall //sessionsModule.moduleInitData
         });
+        console.log("installModuleHash", installModuleHash);
 
         const result = await bundlerClient.waitForUserOperationReceipt({
             hash: installModuleHash,
@@ -278,45 +236,28 @@ const main = async () => {
       account: await toStartaleSmartAccount({ 
            signer: sessionOwner, 
            accountAddress: sessionData.granter,
-           chain,
+           chain: chain,
            transport: http()
       }),
-      bundlerUrl,
-      // transport: http(bundlerUrl) as any,
+      transport: http(bundlerUrl),
+      client: publicClient,
       mock: true,
-      // client: publicClient as any,
-      paymaster: {
-          async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-            pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-            pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-            pmDataParams.verificationGasLimit = BigInt(500000);
-            // console.log("Called getPaymasterData: ", pmDataParams);
-            const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-            console.log("Paymaster Response: ", paymasterResponse);
-            return paymasterResponse;
-          },
-          async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-            // console.log("Called getPaymasterStubData: ", pmStubDataParams);
-            const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-            console.log("Paymaster Stub Response: ", paymasterStubResponse);
-            return paymasterStubResponse;
-          },
-        },
+      paymaster: scsPaymasterClient,
       paymasterContext: scsContext,
-      // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-      userOperation: {
-          estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
-            return {
-              maxFeePerGas: BigInt(10000000),
-              maxPriorityFeePerGas: BigInt(10000000)
-          }
-          }
-        }
+      // Review : we still need this for this script
+      // userOperation: {
+      //   estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
+      //     return {
+      //       maxFeePerGas: BigInt(10000000),
+      //       maxPriorityFeePerGas: BigInt(10000000)
+      //   }
+      //   }
+      // }
     })
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner,
+      signer: sessionOwner as any,
       moduleData: parsedSessionData.moduleData
     })
 

@@ -38,7 +38,7 @@ import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaste
 // import { erc7579Actions } from "permissionless/actions/erc7579";
 // import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
-import { createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -82,9 +82,8 @@ const bundlerClient = createBundlerClient({
   transport: http(bundlerUrl),
 });
 
-const paymasterClient = createPaymasterClient({
+const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl),
-  rpcSchema: rpcSchema<PaymasterRpcSchema>(),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -95,7 +94,7 @@ const entryPoint = {
 };
 
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, policyId: "sudo" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -115,44 +114,15 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer as any, 
-          chain: chain as any,
-          transport: http() as any,
-          index: BigInt(1093567910)
+          signer: signer, 
+          chain,
+          transport: http(),
+          index: BigInt(106910)
         }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
-        paymaster: {
-            async getPaymasterData(pmDataParams: GetPaymasterDataParameters) {
-              pmDataParams.paymasterPostOpGasLimit = BigInt(100000);
-              pmDataParams.paymasterVerificationGasLimit = BigInt(200000);
-              pmDataParams.verificationGasLimit = BigInt(500000);
-              console.log("Called getPaymasterData: ", pmDataParams);
-              const paymasterResponse = await paymasterClient.getPaymasterData(pmDataParams);
-              console.log("Paymaster Response: ", paymasterResponse);
-              return paymasterResponse;
-            },
-            async getPaymasterStubData(pmStubDataParams: GetPaymasterDataParameters) {
-              console.log("Called getPaymasterStubData: ", pmStubDataParams);
-              const paymasterStubResponse = await paymasterClient.getPaymasterStubData(pmStubDataParams);
-              console.log("Paymaster Stub Response: ", paymasterStubResponse);
-              return paymasterStubResponse;
-            },
-          },
-          paymasterContext: scsContext,
-        // Note: Otherise makes a call to a different endpoint as of now. WIP on the sdk
-          userOperation: {
-            estimateFeesPerGas: async ({ account, bundlerClient, userOperation }: { 
-              account: any; 
-              bundlerClient: any; 
-              userOperation: any;
-            }) => {
-              return {
-                maxFeePerGas: BigInt(10000000),
-                maxPriorityFeePerGas: BigInt(10000000)
-              }
-            }
-          }
+        transport: http(bundlerUrl),
+        client: publicClient,
+        paymaster: scsPaymasterClient,
+        paymasterContext: scsContext,
       })
 
       const address = smartAccountClient.account.address;
@@ -172,6 +142,8 @@ const main = async () => {
         abi: CounterAbi,
         functionName: "count",
       });
+
+      // Note: please note to use this only for a deployed smart account.
 
       const myNonce1 = await smartAccountClient.account.getNonce({
         key: 100n // can be any random number. this is your nonceSpace or batchId
