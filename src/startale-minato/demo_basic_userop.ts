@@ -32,11 +32,8 @@ import {
   type BundlerClient,
 } from "viem/account-abstraction";
 import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { soneiumMinato, soneium } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
@@ -83,8 +80,9 @@ const bundlerClient = createBundlerClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl),
+  transport: http(paymasterUrl) as any
 });
+
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
@@ -93,8 +91,14 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
+// Review
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
+
+// pm_1 is for postpaid pm for local db
+// pm_test is is for dev env for postpaid paymaster
+// pm_2 is fo prepaid pm with local db
+// pm_test_self_funded is mapped to self funded paymaster
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -114,20 +118,21 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-          signer: signer, 
-          chain,
-          transport: http(),
-          index: BigInt(106910)
-        }),
-        transport: http(bundlerUrl),
-        client: publicClient,
-        paymaster: scsPaymasterClient,
-        paymasterContext: scsContext,
+               signer: signer, 
+               chain: chain,
+               transport: http(),
+               index: BigInt(2132)
+          }),
+          transport: http(bundlerUrl),
+          client: publicClient,
+          paymaster: scsPaymasterClient,
+          paymasterContext: scsContext,
       })
 
       const address = smartAccountClient.account.address;
       console.log("address", address);
 
+      // Todo: Deploy fresh counter address which is also available on Mainnet
       const counterStateBefore = (await publicClient.readContract({
         address: counterContract,
         abi: CounterAbi,
@@ -135,68 +140,23 @@ const main = async () => {
         args: [smartAccountClient.account.address],
       })) as bigint;
 
-      console.log("counterStateBefore", counterStateBefore);
-
       // Construct call data
       const callData = encodeFunctionData({
         abi: CounterAbi,
         functionName: "count",
       });
 
-      // Note: please note to use this only for a deployed smart account.
-
-      const myNonce1 = await smartAccountClient.account.getNonce({
-        key: 100n // can be any random number. this is your nonceSpace or batchId
-      })
-
-      console.log("myNonce1", myNonce1);
-
-      const myNonce2 = await smartAccountClient.account.getNonce({
-        key: 200n // can be any random number. this is your nonceSpace or batchId
-        // One can also keep increasing batchId sequentially for example 1,2,3,...
-      })
-
-      console.log("myNonce2", myNonce2);
-
-      // You can send them in any randomised order since both will follow different nonce "space" realm.
-
-      const hash1 = await smartAccountClient.sendUserOperation({ 
+      const hash = await smartAccountClient.sendUserOperation({ 
         calls: [
           {
             to: counterContract as Address,
             value: BigInt(0),
             data: callData,
-            },
-          ],
-          nonce: myNonce1
-        })
-        
-        
-      const hash2 = await smartAccountClient.sendUserOperation({ 
-          calls: [
-            {
-              to: counterContract as Address,
-              value: BigInt(0),
-              data: callData,
-            },
-          ],
-          nonce: myNonce2
-        })
-
-      const receipt1 = await smartAccountClient.waitForUserOperationReceipt({ hash: hash1 }); 
-      console.log("receipt1", receipt1);
-
-      const receipt2 = await smartAccountClient.waitForUserOperationReceipt({ hash: hash2 }); 
-      console.log("receipt2", receipt2);
-
-      const counterStateAfter = (await publicClient.readContract({
-        address: counterContract,
-        abi: CounterAbi,
-        functionName: "counters",
-        args: [smartAccountClient.account.address],
-      })) as bigint;
-
-      console.log("counterStateAfter", counterStateAfter);
+          },
+        ],
+      }); 
+      const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
+      console.log("receipt", receipt);
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }

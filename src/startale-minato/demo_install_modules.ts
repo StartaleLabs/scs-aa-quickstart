@@ -81,7 +81,7 @@ const entryPoint = {
 };
 
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_self_funded" }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -104,7 +104,7 @@ const main = async () => {
           signer: signer, 
           chain,
           transport: http(),
-          index: BigInt(164589)
+          index: BigInt(111787)
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any,
@@ -115,6 +115,7 @@ const main = async () => {
       const address = smartAccountClient.account.address;
       console.log("address", address);
 
+      // Todo: Deploy fresh counter address which is also available on Mainnet
       // Construct call data
       const callData = encodeFunctionData({
         abi: CounterAbi,
