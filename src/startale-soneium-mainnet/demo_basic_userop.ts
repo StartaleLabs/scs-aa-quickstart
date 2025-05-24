@@ -41,7 +41,7 @@ import cliTable = require("cli-table3");
 import chalk from "chalk";
 
 
-const bundlerUrl = process.env.MINATO_BUNDLER_URL;
+const bundlerUrl = process.env.MAINNET_BUNDLER_URL_PROD;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
@@ -68,7 +68,7 @@ type PaymasterRpcSchema = [
     },
 ];
 
-const chain = soneiumMinato;
+const chain = soneium;
 const publicClient = createPublicClient({
   transport: http(),
   chain,
@@ -133,25 +133,25 @@ const main = async () => {
       console.log("address", address);
 
       // Todo: Deploy fresh counter address which is also available on Mainnet
-      const counterStateBefore = (await publicClient.readContract({
-        address: counterContract,
-        abi: CounterAbi,
-        functionName: "counters",
-        args: [smartAccountClient.account.address],
-      })) as bigint;
+      // const counterStateBefore = (await publicClient.readContract({
+      //   address: counterContract,
+      //   abi: CounterAbi,
+      //   functionName: "counters",
+      //   args: [smartAccountClient.account.address],
+      // })) as bigint;
 
-      // Construct call data
-      const callData = encodeFunctionData({
-        abi: CounterAbi,
-        functionName: "count",
-      });
+      // // Construct call data
+      // const callData = encodeFunctionData({
+      //   abi: CounterAbi,
+      //   functionName: "count",
+      // });
 
       const hash = await smartAccountClient.sendUserOperation({ 
         calls: [
           {
-            to: counterContract as Address,
+            to: "0x2cf491602ad22944D9047282aBC00D3e52F56B37",
             value: BigInt(0),
-            data: callData,
+            data: "0x",
           },
         ],
       }); 

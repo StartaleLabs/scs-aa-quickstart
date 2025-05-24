@@ -43,18 +43,18 @@ import cliTable = require("cli-table3");
 import chalk from "chalk";
 
 
-const bundlerUrl = process.env.MINATO_BUNDLER_URL;
+const bundlerUrl = process.env.MAINNET_BUNDLER_URL_PROD;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
-const tokenAddress = process.env.ASTR_MINATO_ADDRESS;
-const paymasterAddress = process.env.TOKEN_PAYMASTER_DEV_ADDRESS as Address;
+const tokenAddress = process.env.ASTR_MAINNET_ADDRESS;
+const paymasterAddress = process.env.TOKEN_PAYMASTER_PROD_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
 
-const chain = soneiumMinato;
+const chain = soneium;
 const publicClient = createPublicClient({
   transport: http(),
   chain,
@@ -120,25 +120,25 @@ const main = async () => {
       /// We can also do this manually by providing max approval and batching from client side (as it is done in the commented code)
 
       // Todo: Deploy fresh counter address which is also available on Mainnet
-      const counterStateBefore = (await publicClient.readContract({
-        address: counterContract,
-        abi: CounterAbi,
-        functionName: "counters",
-        args: [smartAccountClient.account.address],
-      })) as bigint;
+      // const counterStateBefore = (await publicClient.readContract({
+      //   address: counterContract,
+      //   abi: CounterAbi,
+      //   functionName: "counters",
+      //   args: [smartAccountClient.account.address],
+      // })) as bigint;
 
-      // Construct call data
-      const callData = encodeFunctionData({
-        abi: CounterAbi,
-        functionName: "count",
-      });
+      // // Construct call data
+      // const callData = encodeFunctionData({
+      //   abi: CounterAbi,
+      //   functionName: "count",
+      // });
 
       const preparedUserOp = await smartAccountClient.prepareUserOperation({
         calls: [
           {
-            to: counterContract as Address,
+            to: "0x2cf491602ad22944D9047282aBC00D3e52F56B37",
             value: BigInt(0),
-            data: callData,
+            data: "0x",
           }
         ]
       })
@@ -151,9 +151,9 @@ const main = async () => {
       // const hash = await smartAccountClient.sendUserOperation({ 
       //   calls: [
       //     {
-      //       to: counterContract as Address,
+      //       to: "0x2cf491602ad22944D9047282aBC00D3e52F56B37",
       //       value: BigInt(0),
-      //       data: callData,
+      //       data: "0x",
       //     },
       //     {
       //       to: tokenAddress as Address,
@@ -175,14 +175,14 @@ const main = async () => {
       const hash = await smartAccountClient.sendTokenPaymasterUserOp({
         calls: [
           {
-            to: counterContract as Address,
+            to: "0x2cf491602ad22944D9047282aBC00D3e52F56B37",
             value: BigInt(0),
-            data: callData,
+            data: "0x",
           }
         ],
         feeTokenAddress: tokenAddress as Address,
-        // You can either match by ASTR token address or use the one you know from response. 4th element in array in this case (Minato current supported tokens)
-        customApprovalAmount: BigInt(quotes.feeQuotes[3].requiredAmount)
+        // You can either match by ASTR token address or use the one you know from response. 2nd element in array in this case (Mainnet current supported tokens)
+        customApprovalAmount: BigInt(quotes.feeQuotes[1].requiredAmount)
       })
       console.log("hash", hash);
 
