@@ -46,7 +46,7 @@ import chalk from "chalk";
 import { getSmartSessionsValidator, getSocialRecoveryValidator } from "@rhinestone/module-sdk";
 
 
-const bundlerUrl = process.env.BUNDLER_URL;
+const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;

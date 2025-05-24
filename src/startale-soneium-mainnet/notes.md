@@ -1,0 +1,1 @@
+Note: Below scripts are tested with prod bundler url (soneium mainnet) and prod paymaster service url for Soneium mainnet.
