@@ -8,4 +8,4 @@
 
 2. put required values in .env
 
-3. Run scripts with ts-node src/starttale/*
+3. Run scripts with ts-node src/starttale-minato/*
