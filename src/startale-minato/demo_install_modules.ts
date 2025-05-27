@@ -5,38 +5,16 @@ import {
   type Address,
   type Hex,
   createPublicClient,
-  encodeFunctionData,
-  formatEther,
-  rpcSchema,
-  toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
+  encodeFunctionData
 } from "viem";
 import {
   type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
   createBundlerClient,
-  createPaymasterClient,
-  entryPoint07Address,
-  getPaymasterStubData,
-  getUserOperationHash,
+  entryPoint07Address
 } from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
@@ -75,12 +53,8 @@ const scsPaymasterClient = createSCSPaymasterClient({
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
-const entryPoint = {
-  address: entryPoint07Address as Address,
-  version: "0.7" as EntryPointVersion,
-};
-
-// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+// Note: It is advised to always use calculateGasLimits true.
+// Grab the paymasterId from the paymaster dashboard.
 const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_self_funded" }
 
 const main = async () => {
@@ -211,6 +185,18 @@ const main = async () => {
 main();
 
 
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** Multiple module installations
+ ** Module uninstallation
+ ** Unable to uninstall last validator
+ ** Information around using the installed module. either extend the client or break the flow using separate nonce and prepareUserOperation -> sign -> send steps
+ **/
 
 
 

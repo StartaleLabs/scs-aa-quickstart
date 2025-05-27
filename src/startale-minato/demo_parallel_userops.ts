@@ -5,38 +5,11 @@ import {
   type Address,
   type Hex,
   createPublicClient,
-  encodeFunctionData,
-  formatEther,
-  rpcSchema,
-  toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
+  encodeFunctionData
 } from "viem";
-import {
-  type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
-  createBundlerClient,
-  createPaymasterClient,
-  entryPoint07Address,
-  getUserOperationHash,
-  type BundlerClient,
-} from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
@@ -53,33 +26,10 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
 
-type PaymasterRpcSchema = [
-    {
-      Method: "pm_getPaymasterData";
-      Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
-      ReturnType: {
-        callGasLimit: bigint;
-        verificationGasLimit: bigint;
-        preVerificationGas: bigint;
-        paymasterVerificationGasLimit: bigint;
-        paymasterPostOpGasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        paymasterData: string;
-        paymaster: string;
-      };
-    },
-];
-
 const chain = soneiumMinato;
 const publicClient = createPublicClient({
   transport: http(),
   chain,
-});
-
-const bundlerClient = createBundlerClient({
-  client: publicClient,
-  transport: http(bundlerUrl),
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
@@ -88,12 +38,9 @@ const scsPaymasterClient = createSCSPaymasterClient({
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
-const entryPoint = {
-  address: entryPoint07Address as Address,
-  version: "0.7" as EntryPointVersion,
-};
+// Note: It is advised to always use calculateGasLimits true.
 
-// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+// Grab the paymasterId from the paymaster dashboard.
 const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
 
 const main = async () => {
@@ -205,3 +152,14 @@ const main = async () => {
 
 main();
 
+
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** 
+ **
+ **/

@@ -6,41 +6,20 @@ import {
   type Hex,
   createPublicClient,
   encodeFunctionData,
-  formatEther,
-  rpcSchema,
-  toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
   stringify,
   PublicClient,
 } from "viem";
 import {
   type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
   createBundlerClient,
-  createPaymasterClient,
-  entryPoint07Address,
-  getUserOperationHash,
+  entryPoint07Address
 } from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { baseSepolia, soneiumMinato } from "viem/chains";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { SponsorshipPaymaster as PaymasterAbi } from "../abi/SponsorshipPaymaster";
-// import { erc7579Actions } from "permissionless/actions/erc7579";
-// import { type InstallModuleParameters } from "permissionless/actions/erc7579";
 
 import { createSCSPaymasterClient, CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, smartSessionUseActions, toStartaleSmartAccount } from "startale-aa-sdk";
-import { getSmartSessionsValidator, getSudoPolicy, getTrustAttestersAction, SmartSessionMode } from "@rhinestone/module-sdk";
+import { getSmartSessionsValidator, SmartSessionMode } from "@rhinestone/module-sdk";
 import { isSessionEnabled } from "@rhinestone/module-sdk";
 import { toSmartSessionsValidator } from "startale-aa-sdk";
 
@@ -53,7 +32,6 @@ const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
-const MOCK_ATTESTER_ADDRESS = process.env.MOCK_ATTESTER_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -117,14 +95,6 @@ const main = async () => {
       const address = await smartAccountClient.account.getAddress();
       console.log("address", address);
 
-      // First things first
-      // If we use our own deployment or ENABLE mode then no need to trust attesters
-
-      // Trust attestors is not required when we use our custom addressses
-      // SMART_SESSIONS_MODULE_ADDRESS=0x716BC27e1b904331C58891cC3AB13889127189a7
-      // OWNABLE_VALIDATOR_ADDRESS=0x7C5F70297f194800D8cE49F87a6b29f8d88f38Ad
-      // Or when we use sdk version ^0.0.10 as it is batched from within the sdk
-
       // Note: Can keep fixed session owner
       const sessionOwner = privateKeyToAccount(generatePrivateKey())
       console.log("session owner address ", sessionOwner.address);
@@ -136,10 +106,7 @@ const main = async () => {
       })
 
       const smartSessionsToInstall = getSmartSessionsValidator({})
-      // console.log("Smart Sessions: ", smartSessionsToInstall);
-      // console.log("sessionsModule", sessionsModule);
 
-      // Review
       const isInstalledBefore = await smartAccountClient.isModuleInstalled({
         module: sessionsModule
       })
@@ -165,9 +132,6 @@ const main = async () => {
         smartSessionCreateActions(sessionsModule)
       )
 
-      // Note: It uses sudo policy here but we can make use of uni action policy as well
-
-      // session key signer address is declared here
       const sessionRequestedInfo: CreateSessionDataParams[] = [
         {
          sessionPublicKey: sessionOwner.address, // session key signer
@@ -175,7 +139,9 @@ const main = async () => {
            {
              contractAddress: counterContract, // counter address
              functionSelector: '0x06661abd' as Hex, // function selector for increment count
-             sudo: true
+             // If rules are provided Universal Action policy is created and attached.
+             // If rules are not provided then sudo policy only for this "action"(contract and selector) is created.
+             // sudo: true
            }
           ]
         }
@@ -215,7 +181,7 @@ const main = async () => {
       })) as bigint;
       console.log("counterStateBefore", counterStateBefore);
 
-      // Now we will make use of Granted permissions
+    // Now we will make use of Granted permissions
 
     const parsedSessionData = JSON.parse(cachedSessionData) as SessionData;
     console.log("parsedSessionData", parsedSessionData);
@@ -244,15 +210,6 @@ const main = async () => {
       mock: true,
       paymaster: scsPaymasterClient,
       paymasterContext: scsContext,
-      // Review : we still need this for this script
-      // userOperation: {
-      //   estimateFeesPerGas: async ({bundlerClient}: {bundlerClient: any}) => {
-      //     return {
-      //       maxFeePerGas: BigInt(10000000),
-      //       maxPriorityFeePerGas: BigInt(10000000)
-      //   }
-      //   }
-      // }
     })
 
     const usePermissionsModule = toSmartSessionsValidator({
@@ -303,3 +260,14 @@ const main = async () => {
 }
 
 main();
+
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** 
+ **
+ **/

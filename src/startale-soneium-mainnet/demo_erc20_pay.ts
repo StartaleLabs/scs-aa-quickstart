@@ -5,37 +5,18 @@ import {
   type Address,
   type Hex,
   createPublicClient,
-  encodeFunctionData,
-  formatEther,
-  rpcSchema,
   toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
   erc20Abi,
   maxUint256,
 } from "viem";
 import {
   type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
   createBundlerClient,
-  createPaymasterClient,
   entryPoint07Address,
-  getUserOperationHash,
-  type BundlerClient,
 } from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { soneiumMinato, soneium } from "viem/chains";
-import { Counter as CounterAbi } from "../abi/Counter";
+import { privateKeyToAccount } from "viem/accounts";
+import { soneium } from "viem/chains";
+// import { Counter as CounterAbi } from "../abi/Counter";
 
 import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
 
@@ -46,7 +27,7 @@ import chalk from "chalk";
 const bundlerUrl = process.env.MAINNET_BUNDLER_URL_PROD;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
-const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+// const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const tokenAddress = process.env.ASTR_MAINNET_ADDRESS;
 const paymasterAddress = process.env.TOKEN_PAYMASTER_PROD_ADDRESS as Address;
 
@@ -60,24 +41,15 @@ const publicClient = createPublicClient({
   chain,
 });
 
-const bundlerClient = createBundlerClient({
-  client: publicClient,
-  transport: http(bundlerUrl),
-});
-
 const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
-const entryPoint = {
-  address: entryPoint07Address as Address,
-  version: "0.7" as EntryPointVersion,
-};
+// Note: It is advised to always use calculateGasLimits true.
 
-// Review
-// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+// Grab the paymasterId from the paymaster dashboard.
 const scsContext = { calculateGasLimits: true, token: tokenAddress }
 
 const main = async () => {
@@ -196,3 +168,13 @@ const main = async () => {
 
 main();
 
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** 
+ **
+ **/
