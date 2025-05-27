@@ -10,11 +10,11 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "startale-aa-sdk": ["./node_modules/startale-aa-sdk/dist/_types"]
+      "@startale-scs/aa-sdk": ["./node_modules/@startale-scs/aa-sdk/dist/_types"]
     },
     "typeRoots": [
       "./node_modules/@types",
-      "./node_modules/startale-aa-sdk/dist/_types",
+      "./node_modules/@startale-scs/aa-sdk/dist/_types",
       "./src/types"
     ]
   },

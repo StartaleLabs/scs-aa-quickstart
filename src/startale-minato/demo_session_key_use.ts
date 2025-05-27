@@ -18,10 +18,10 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
 
-import { createSCSPaymasterClient, CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, smartSessionUseActions, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, CreateSessionDataParams, createSmartAccountClient, SessionData, smartSessionCreateActions, smartSessionUseActions, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
 import { getSmartSessionsValidator, SmartSessionMode } from "@rhinestone/module-sdk";
 import { isSessionEnabled } from "@rhinestone/module-sdk";
-import { toSmartSessionsValidator } from "startale-aa-sdk";
+import { toSmartSessionsValidator } from "@startale-scs/aa-sdk";
 
 import type Table from "cli-table3";
 import CliTable from "cli-table3";
