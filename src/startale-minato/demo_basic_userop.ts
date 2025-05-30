@@ -39,6 +39,7 @@ const signer = privateKeyToAccount(privateKey as Hex);
 // Note: It is advised to always use calculateGasLimits true.
 
 // Grab the paymasterId from the paymaster dashboard.
+// pm_test_managed_gascost_policy
 const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
 
 const main = async () => {

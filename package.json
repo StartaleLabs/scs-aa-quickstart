@@ -12,19 +12,22 @@
   "description": "",
   "dependencies": {
     "@rhinestone/module-sdk": "0.2.3",
-    "@startale-scs/aa-sdk": "=0.0.2",
+    "@startale-scs/aa-sdk": "=0.1.0",
     "chalk": "^5.4.1",
+    "cli-progress": "^3.12.0",
     "cli-table3": "^0.6.5",
     "dotenv": "^16.4.7",
     "fs-extra": "^11.3.0",
     "ink": "^5.1.0",
     "ora": "^8.2.0",
+    "p-limit": "^6.2.0",
     "solady": "^0.1.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
     "viem": "^2.23.2"
   },
   "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
     "@types/fs-extra": "^11.0.4",
     "tslib": "^2.8.1"
   }
