@@ -6,40 +6,14 @@ import {
   type Hex,
   createPublicClient,
   encodeFunctionData,
-  formatEther,
-  rpcSchema,
-  toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
 } from "viem";
-import {
-  type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
-  createBundlerClient,
-  createPaymasterClient,
-  entryPoint07Address,
-  getUserOperationHash,
-  type BundlerClient,
-} from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { soneiumMinato, soneium } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-
-import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
-
 
 const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -50,54 +24,22 @@ if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
 
-type PaymasterRpcSchema = [
-    {
-      Method: "pm_getPaymasterData";
-      Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
-      ReturnType: {
-        callGasLimit: bigint;
-        verificationGasLimit: bigint;
-        preVerificationGas: bigint;
-        paymasterVerificationGasLimit: bigint;
-        paymasterPostOpGasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        paymasterData: string;
-        paymaster: string;
-      };
-    },
-];
-
 const chain = soneiumMinato;
 const publicClient = createPublicClient({
   transport: http(),
   chain,
 });
 
-const bundlerClient = createBundlerClient({
-  client: publicClient,
-  transport: http(bundlerUrl),
-});
-
 const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl) as any
 });
 
-
 const signer = privateKeyToAccount(privateKey as Hex);
 
-const entryPoint = {
-  address: entryPoint07Address as Address,
-  version: "0.7" as EntryPointVersion,
-};
+// Note: It is advised to always use calculateGasLimits true.
 
-// Review
-// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-
-// pm_1 is for postpaid pm for local db
-// pm_test is is for dev env for postpaid paymaster
-// pm_2 is fo prepaid pm with local db
-// pm_test_self_funded is mapped to self funded paymaster
+// Grab the paymasterId from the paymaster dashboard.
+// pm_test_managed_gascost_policy
 const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
 
 const main = async () => {
@@ -129,6 +71,8 @@ const main = async () => {
           paymasterContext: scsContext,
       })
 
+      // This is how you can get counterfactual address of the smart account even before it is deployed.
+      // It is useful to pre-send some eth or erc20 tokens so that deployment txn could use those funds (depending on the paymaster)
       const address = smartAccountClient.account.address;
       console.log("address", address);
 
@@ -165,3 +109,13 @@ const main = async () => {
 
 main();
 
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** 
+ **
+ **/

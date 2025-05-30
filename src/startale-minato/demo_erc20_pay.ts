@@ -6,42 +6,18 @@ import {
   type Hex,
   createPublicClient,
   encodeFunctionData,
-  formatEther,
-  rpcSchema,
   toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
   erc20Abi,
   maxUint256,
 } from "viem";
-import {
-  type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
-  createBundlerClient,
-  createPaymasterClient,
-  entryPoint07Address,
-  getUserOperationHash,
-  type BundlerClient,
-} from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { soneiumMinato, soneium } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
 
-import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
-
 
 const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -60,24 +36,15 @@ const publicClient = createPublicClient({
   chain,
 });
 
-const bundlerClient = createBundlerClient({
-  client: publicClient,
-  transport: http(bundlerUrl),
-});
-
 const scsPaymasterClient = createSCSPaymasterClient({
   transport: http(paymasterUrl),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
 
-const entryPoint = {
-  address: entryPoint07Address as Address,
-  version: "0.7" as EntryPointVersion,
-};
-
-// Review
-// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+// Note: It is advised to always use calculateGasLimits true.
+// Make sure the key used is token and not token address.
+// Todo: Add in the docs explanation about paymaster context.
 const scsContext = { calculateGasLimits: true, token: tokenAddress }
 
 const main = async () => {
@@ -147,7 +114,6 @@ const main = async () => {
       console.log("quotes", quotes);
 
       // Manually appending max approval and using paymaster client, without using calls to get fee quotes and the decorator sendTokenPaymasterUserOp 
-
       // const hash = await smartAccountClient.sendUserOperation({ 
       //   calls: [
       //     {
@@ -196,3 +162,13 @@ const main = async () => {
 
 main();
 
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** 
+ **
+ **/

@@ -4,79 +4,33 @@ import {
   http,
   type Address,
   type Hex,
-  createPublicClient,
-  encodeFunctionData,
-  formatEther,
-  rpcSchema,
-  toHex,
-  encodePacked,
-  zeroAddress,
-  encodeAbiParameters,
-  toBytes,
-  pad,
-  concatHex,
-  parseEther,
+  createPublicClient
 } from "viem";
 import {
   type EntryPointVersion,
-  type GetPaymasterDataParameters,
-  type PaymasterClient,
-  type PrepareUserOperationParameters,
-  type PrepareUserOperationRequest,
-  type UserOperation,
-  bundlerActions,
-  createBundlerClient,
-  createPaymasterClient,
-  entryPoint07Address,
-  getUserOperationHash,
-  type BundlerClient,
+  entryPoint07Address
 } from "viem/account-abstraction";
-import { generatePrivateKey, privateKeyToAccount, sign } from "viem/accounts";
-import { soneiumMinato, soneium } from "viem/chains";
-import { Counter as CounterAbi } from "../abi/Counter";
+import { privateKeyToAccount } from "viem/accounts";
+import { soneium } from "viem/chains";
 
-import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "startale-aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
 
-
 const bundlerUrl = process.env.MAINNET_BUNDLER_URL_PROD;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
-const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+// const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
 }
 
-type PaymasterRpcSchema = [
-    {
-      Method: "pm_getPaymasterData";
-      Parameters: [PrepareUserOperationRequest, { mode: string; calculateGasLimits: boolean }];
-      ReturnType: {
-        callGasLimit: bigint;
-        verificationGasLimit: bigint;
-        preVerificationGas: bigint;
-        paymasterVerificationGasLimit: bigint;
-        paymasterPostOpGasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        paymasterData: string;
-        paymaster: string;
-      };
-    },
-];
-
 const chain = soneium;
 const publicClient = createPublicClient({
   transport: http(),
   chain,
-});
-
-const bundlerClient = createBundlerClient({
-  client: publicClient,
-  transport: http(bundlerUrl),
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
@@ -91,13 +45,9 @@ const entryPoint = {
   version: "0.7" as EntryPointVersion,
 };
 
-// Review
-// Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
+// Note: It is advised to always use calculateGasLimits true.
 
-// pm_1 is for postpaid pm for local db
-// pm_test is is for dev env for postpaid paymaster
-// pm_2 is fo prepaid pm with local db
-// pm_test_self_funded is mapped to self funded paymaster
+// Grab the paymasterId from the paymaster dashboard.
 const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
 
 const main = async () => {
@@ -165,3 +115,13 @@ const main = async () => {
 
 main();
 
+/******************************Potential Errors**********************************************
+ ** 
+ **
+ **/
+
+
+ /******************************QA test scenarios**********************************************
+ ** 
+ **
+ **/
