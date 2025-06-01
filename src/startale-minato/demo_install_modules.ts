@@ -81,7 +81,7 @@ const main = async () => {
           index: BigInt(111787)
         }),
         transport: http(bundlerUrl) as any,
-        client: publicClient as any,
+        client: publicClient as any, // Must pass the client
         paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
       })
@@ -183,20 +183,6 @@ const main = async () => {
 }
 
 main();
-
-
-/******************************Potential Errors**********************************************
- ** 
- **
- **/
-
-
- /******************************QA test scenarios**********************************************
- ** Multiple module installations
- ** Module uninstallation
- ** Unable to uninstall last validator
- ** Information around using the installed module. either extend the client or break the flow using separate nonce and prepareUserOperation -> sign -> send steps
- **/
 
 
 

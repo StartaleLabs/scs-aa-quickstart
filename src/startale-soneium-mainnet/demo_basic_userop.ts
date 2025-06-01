@@ -18,7 +18,7 @@ import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAcco
 import cliTable = require("cli-table3");
 import chalk from "chalk";
 
-const bundlerUrl = process.env.MAINNET_BUNDLER_URL_PROD;
+const bundlerUrl = process.env.MAINNET_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 // const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
@@ -48,7 +48,7 @@ const entryPoint = {
 // Note: It is advised to always use calculateGasLimits true.
 
 // Grab the paymasterId from the paymaster dashboard.
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
+const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" /*Your paymasterId goes here. Grab it from dashboard*/ }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -114,14 +114,3 @@ const main = async () => {
 }
 
 main();
-
-/******************************Potential Errors**********************************************
- ** 
- **
- **/
-
-
- /******************************QA test scenarios**********************************************
- ** 
- **
- **/

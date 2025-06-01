@@ -24,7 +24,7 @@ const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const tokenAddress = process.env.ASTR_MINATO_ADDRESS;
-const paymasterAddress = process.env.TOKEN_PAYMASTER_DEV_ADDRESS as Address;
+const paymasterAddress = process.env.TOKEN_PAYMASTER_PROD_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -161,14 +161,3 @@ const main = async () => {
 }
 
 main();
-
-/******************************Potential Errors**********************************************
- ** 
- **
- **/
-
-
- /******************************QA test scenarios**********************************************
- ** 
- **
- **/
