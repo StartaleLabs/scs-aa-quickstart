@@ -84,7 +84,7 @@ const main = async () => {
              signer: signer, 
              chain,
              transport: http(),
-             index: BigInt(89476)
+             index: BigInt(8941176)
         }),
         transport: http(bundlerUrl),
         client: publicClient,
@@ -187,9 +187,9 @@ const main = async () => {
     console.log("parsedSessionData", parsedSessionData);
 
     const isEnabled = await isSessionEnabled({
-      client: smartAccountClient.account.client as PublicClient,
+      client: smartAccountClient.account.client as any,
       account: {
-        type: "nexus",
+        type: "erc7579-implementation",
         address: smartAccountClient.account.address,
         deployedOnChains: [chain.id]
       },
