@@ -32,6 +32,7 @@ const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+const paymasterId = process.env.PAYMASTER_ID;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -61,7 +62,7 @@ const entryPoint = {
 
 // Review:
 // Note: we MUST use calculateGasLimits true otherwise we get verificationGasLimit too low
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" }
+const scsContext = { calculateGasLimits: true, paymasterId: paymasterId }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
@@ -84,7 +85,7 @@ const main = async () => {
              signer: signer, 
              chain,
              transport: http(),
-             index: BigInt(8941176)
+             index: BigInt(8941976)
         }),
         transport: http(bundlerUrl),
         client: publicClient,
