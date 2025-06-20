@@ -216,7 +216,7 @@ const main = async () => {
           }
         ],
         initCode: "0x",
-        authorization: authorization,
+        // authorization: authorization,
       })
 
       console.log("preparedOp", preparedOp);
@@ -265,14 +265,14 @@ const main = async () => {
         preVerificationGas: `0x${BigInt(finalUserOp.preVerificationGas).toString(16)}`,
         // paymasterVerificationGasLimit: `0x${BigInt(finalUserOp.paymasterVerificationGasLimit).toString(16)}`,
         // paymasterPostOpGasLimit: `0x${BigInt(finalUserOp.paymasterPostOpGasLimit).toString(16)}`,
-        eip7702Auth: {
-          chainId: toHex(authorization.chainId!),
-          nonce: toHex(authorization.nonce!),
-          address: authorization.address as Hex,
-          r: authorization.r as Hex,
-          s: authorization.s as Hex,
-          yParity: toHex(authorization.yParity!)
-    }
+        // eip7702Auth: {
+        //   chainId: toHex(authorization.chainId!),
+        //   nonce: toHex(authorization.nonce!),
+        //   address: authorization.address as Hex,
+        //   r: authorization.r as Hex,
+        //   s: authorization.s as Hex,
+        //   yParity: toHex(authorization.yParity!)
+        // }
     };
 
     console.log(`eth_sendUserOperation : ${JSON.stringify(finalUserOpHex)}`);

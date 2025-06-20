@@ -9,7 +9,6 @@ import {
   createWalletClient,
   parseGwei,
   SignedAuthorizationList,
-  toHex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
@@ -19,8 +18,6 @@ import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAcco
 import cliTable = require("cli-table3");
 import chalk from "chalk";
 import { verifyAuthorization } from "viem/utils";
-import { entryPoint07Address, getUserOperationHash } from "viem/account-abstraction";
-import { factory } from "typescript";
 
 const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -109,9 +106,8 @@ const main = async () => {
         * By default, it will be assumed that the EIP-7702 Transaction will
         * be executed by another Account.
         */
-        // executor: 'self',
-        // chainId is optiona. can set to specific network or 0
-        //chainId: 0, // If single authorization signature needs to be valid across all supported-7702 chains
+        // chainId is optional. can set to specific network or 0
+        // chainId: 0, // If single authorization signature needs to be valid across all supported-7702 chains
         // Review: /** Nonce of the EOA to delegate to. */
         // sending authorization (type4 tx) will also increase the nonce by 1 if execute = self. so it must be current nonce + 1. luckily we have helper arg above.
         // nonce: await publicClient.getTransactionCount({
@@ -135,50 +131,29 @@ const main = async () => {
       const authList = getAuthorizationListFromDirectAuths(multipleAuths)
       console.log(authList)
 
-
-      // Send the 7702 authorization transaction
-      // spinner.text = "Sending 7702 authorization transaction...";
-
-      // EOA itself submitting authorization for self.
-      // const txHash = await walletClient.sendTransaction({
-      //   type: 'eip7702',
-      //   chainId: chain.id,
-      //   nonce: await publicClient.getTransactionCount({ address: eoaAddress }),
-      //   // uptional overrides
-
-      //   // maxFeePerGas: parseGwei('50'),
-      //   // maxPriorityFeePerGas: parseGwei('1.5'),
-      //   // gas: 200_000n,
-
-      //   // can be any txn. even to the self for the methods with onlyEntryPointOrSelf modifiers
-      //   to: '0x2cf491602ad22944D9047282aBC00D3e52F56B37',
-      //   value: 0n,
-      //   data: '0x',
-      //   // is a must. this is manual authorization. later we can request 4337 call to the bundler by passing authorization
-      //   authorizationList: authList
-      // });
-
-      // console.log("txHash ", txHash)
-      
-      // Otherwise We need to pass this authorization object when initializing account 
+      // 3 ways
+      // a. either give pre-auth (send separate type4 tx yourself... maybe sdk method delegateTo?) and just send accountAddress overridden with eoa who is already SA now
+      // b. take auth from user (signature..whole authorization object) and pass it as eip7702Auth when creating account  along with overriden SA address = eoa address
+      // Above is only once.. if you still give it doesn't matter once eoa is already SA
+      // c. pass eip7702Account so that we explicitly know we have to take authorization internally and then use that authorization to send type4 tx.  
+ 
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
                signer: signer, 
                chain: chain,
                transport: http(),
                accountAddress: eoaAddress, // smart acocunt address = eoa address
-               // index: BigInt(213266682119) // no need
+               // first way
+               eip7702Auth: authorization,
+               // eip7702Account: signer,
           }),
           transport: http(bundlerUrl),
           client: publicClient,
-          // paymaster: scsPaymasterClient,
-          // paymasterContext: scsContext,
+          // WIP: to make it work with paymaster
+          // Note: if account is already eip7702 paymaster would stil work rn.
+          // paymaster: scsPaymasterClient as any,
+          // paymasterContext: scsContext as any,
       })
-
-      // This is how you can get counterfactual address of the smart account even before it is deployed.
-      // It is useful to pre-send some eth or erc20 tokens so that deployment txn could use those funds (depending on the paymaster)
-      const address = smartAccountClient.account.address;
-      console.log("address", address);
 
       // Todo: Deploy fresh counter address which is also available on Mainnet
       const counterStateBefore = (await publicClient.readContract({
@@ -194,109 +169,22 @@ const main = async () => {
         functionName: "count",
       });
 
-
-      //   const hash = await smartAccountClient.sendUserOperation({ 
-      //     calls: [
-      //       {
-      //         to: counterContract as Address,
-      //         value: BigInt(0),
-      //         data: callData,
-      //       },
-      //     ],
-      //   }); 
-      //   const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
-      //   console.log("receipt", receipt);
-
-      let preparedOp = await smartAccountClient.prepareUserOperation({
-        calls: [
-          {
-            to: counterContract as Address,
-            value: BigInt(0),
-            data: callData,
-          }
-        ],
-        initCode: "0x",
-        authorization: authorization,
-      })
-
-      console.log("preparedOp", preparedOp);
-
-      
-
-      let finalUserOp = {
-        sender: preparedOp.sender as `0x${string}`, // Ensure valid hex string
-        nonce: preparedOp.nonce!, // Convert nonce to BigInt
-        callData: preparedOp.callData as `0x${string}`, // Ensure valid hex string
-        callGasLimit: BigInt(preparedOp.callGasLimit!), // Convert to BigInt
-        verificationGasLimit: BigInt(preparedOp.verificationGasLimit!),
-        preVerificationGas: 86968n, //BigInt(preparedOp.preVerificationGas!),
-        paymasterVerificationGasLimit: undefined,// BigInt(preparedOp.paymasterVerificationGasLimit!),
-        paymasterPostOpGasLimit: undefined,// BigInt(preparedOp.paymasterPostOpGasLimit!),
-        maxFeePerGas: 1000502n,
-        maxPriorityFeePerGas: 1005000n,
-        // paymasterData: (preparedOp.paymasterData as `0x${string}`) || "0x", // Ensure valid hex
-        // paymaster: (preparedOp.paymaster as `0x${string}`) || "0x", // Ensure valid hex
-        signature: "0x" as `0x${string}`, // Ensure 0x-prefixed signature
-      };
-
-      console.log("finalUserOp", finalUserOp);
-      
-
-    // Step 3️⃣: **Sign the UserOperation**
-    console.log("✍️ Signing UserOperation...");
-    const signedUserOp = await smartAccountClient.account.signUserOperation(finalUserOp);
-
-    console.log("✅ Signed UserOperation:", signedUserOp);
-
-    finalUserOp = {...finalUserOp, signature: signedUserOp as `0x${string}`}
-
-    const nonceHex = `0x${BigInt(finalUserOp.nonce).toString(16)}`;
-    console.log("nonceHex", nonceHex);
+      // 1. If I provide authorization here it should check if the account has already been delegated.
+      // 2. If account is inited with eip7702Auth or eip7702Signer(eip7702Account) and if account is not already delegated then I should not have to pass authorization in sendUserOperation
 
 
-    
-    const finalUserOpHex = {
-        ...finalUserOp,
-        nonce: nonceHex,
-        maxFeePerGas: `0x${BigInt(finalUserOp.maxFeePerGas).toString(16)}`,
-        maxPriorityFeePerGas: `0x${BigInt(finalUserOp.maxPriorityFeePerGas).toString(16)}`,
-        callGasLimit: `0x${BigInt(finalUserOp.callGasLimit).toString(16)}`,
-        verificationGasLimit: `0x${BigInt(finalUserOp.verificationGasLimit).toString(16)}`,
-        preVerificationGas: `0x${BigInt(finalUserOp.preVerificationGas).toString(16)}`,
-        // paymasterVerificationGasLimit: `0x${BigInt(finalUserOp.paymasterVerificationGasLimit).toString(16)}`,
-        // paymasterPostOpGasLimit: `0x${BigInt(finalUserOp.paymasterPostOpGasLimit).toString(16)}`,
-        eip7702Auth: {
-          chainId: toHex(authorization.chainId!),
-          nonce: toHex(authorization.nonce!),
-          address: authorization.address as Hex,
-          r: authorization.r as Hex,
-          s: authorization.s as Hex,
-          yParity: toHex(authorization.yParity!)
-    }
-    };
-
-    console.log(`eth_sendUserOperation : ${JSON.stringify(finalUserOpHex)}`);
-
-    // Step 4️⃣: **Send the signed UserOperation**
-    console.log("🚀 Sending UserOperation...");
-
-    const userOpHash = await fetch(bundlerUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "eth_sendUserOperation",
-            params: [finalUserOpHex, entryPoint07Address],
-        }),
-    }).then(res => res.json());
-
-    if (userOpHash.error) {
-        console.error("❌ Error sending UserOperation:", userOpHash.error);
-        return;
-    }
-
-    console.log("✅ UserOperation sent! Hash:", userOpHash);
+        const hash = await smartAccountClient.sendUserOperation({ 
+          calls: [
+            {
+              to: counterContract as Address,
+              value: BigInt(0),
+              data: callData,
+            },
+          ],
+          // No need to pass anything else separately
+        }); 
+        const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
+        console.log("receipt", receipt);
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }
