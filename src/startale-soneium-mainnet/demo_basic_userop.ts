@@ -21,6 +21,7 @@ import chalk from "chalk";
 const bundlerUrl = process.env.MAINNET_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
+const paymasterId = process.env.PAYMASTER_ID;
 // const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
@@ -48,7 +49,7 @@ const entryPoint = {
 // Note: It is advised to always use calculateGasLimits true.
 
 // Grab the paymasterId from the paymaster dashboard.
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed" /*Your paymasterId goes here. Grab it from dashboard*/ }
+const scsContext = { calculateGasLimits: true, paymasterId: paymasterId /*Your paymasterId goes here. Grab it from dashboard*/ }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });

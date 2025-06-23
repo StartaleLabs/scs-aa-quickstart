@@ -19,12 +19,13 @@ const bundlerUrl = process.env.MINATO_BUNDLER_URL!;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL!;
 const privateKey = process.env.OWNER_PRIVATE_KEY!;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+const paymasterId = process.env.PAYMASTER_ID;
 
 const chain = soneiumMinato;
 const publicClient = createPublicClient({ transport: http(), chain });
 const scsPaymasterClient = createSCSPaymasterClient({ transport: http(paymasterUrl) as any });
 const signer = privateKeyToAccount(privateKey as Hex);
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_managed_gasused_policy" };
+const scsContext = { calculateGasLimits: true, paymasterId: paymasterId };
 
 const logStream = fs.createWriteStream("results.csv", { flags: "a" });
 logStream.write("index,nonceKey,timestamp,duration,success,error\n");

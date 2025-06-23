@@ -13,7 +13,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, getEip7702Authorization, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
@@ -98,6 +98,9 @@ const main = async () => {
         transport: http()
       })
 
+      const authUsingSdk = await getEip7702Authorization(walletClient);
+      console.log("authUsingSdk", authUsingSdk)
+
       const authorization = await walletClient.signAuthorization({
         // account: signer,
         /**
@@ -128,8 +131,8 @@ const main = async () => {
       const multipleAuths = []
       multipleAuths.push(authorization)
 
-      const authList = getAuthorizationListFromDirectAuths(multipleAuths)
-      console.log(authList)
+      // const authList = getAuthorizationListFromDirectAuths(multipleAuths)
+      // console.log(authList)
 
       // 3 ways
       // a. either give pre-auth (send separate type4 tx yourself... maybe sdk method delegateTo?) and just send accountAddress overridden with eoa who is already SA now
@@ -144,16 +147,19 @@ const main = async () => {
                transport: http(),
                accountAddress: eoaAddress, // smart acocunt address = eoa address
                // first way
-               eip7702Auth: authorization,
+               eip7702Auth: authorization, // You can use authorization and authUsingSdk interchangeably.
                // eip7702Account: signer,
           }),
           transport: http(bundlerUrl),
           client: publicClient,
           // WIP: to make it work with paymaster
           // Note: if account is already eip7702 paymaster would stil work rn.
-          // paymaster: scsPaymasterClient as any,
-          // paymasterContext: scsContext as any,
+          paymaster: scsPaymasterClient as any,
+          paymasterContext: scsContext as any,
       })
+
+      const isDelegatedBefore = await smartAccountClient.account.isDelegated();
+      console.log("isDelegatedBefore", isDelegatedBefore);
 
       // Todo: Deploy fresh counter address which is also available on Mainnet
       const counterStateBefore = (await publicClient.readContract({
@@ -162,6 +168,7 @@ const main = async () => {
         functionName: "counters",
         args: [smartAccountClient.account.address],
       })) as bigint;
+      console.log("counterStateBefore", counterStateBefore);
 
       // Construct call data
       const callData = encodeFunctionData({
@@ -185,6 +192,26 @@ const main = async () => {
         }); 
         const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash }); 
         console.log("receipt", receipt);
+
+        const isDelegated = await smartAccountClient.account.isDelegated();
+        console.log("isDelegated", isDelegated);
+
+        const counterStateAfter = (await publicClient.readContract({
+          address: counterContract,
+          abi: CounterAbi,
+          functionName: "counters",
+          args: [smartAccountClient.account.address],
+        })) as bigint;
+        console.log("counterStateAfter", counterStateAfter);
+
+        // Optional undelegate to make sure we are undelegated if we want to keep running same path with same EOA without replacing private key.
+        // const tx = await smartAccountClient.account.unDelegate();
+        // console.log("tx", tx);
+        // const unDelegateReceipt = await publicClient.waitForTransactionReceipt({ hash: tx });
+        // console.log("unDelegateReceipt", unDelegateReceipt);
+
+        // const isDelegatedAfter = await smartAccountClient.account.isDelegated();
+        // console.log("isDelegatedAfter", isDelegatedAfter);
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
     }
