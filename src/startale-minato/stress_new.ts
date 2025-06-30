@@ -23,7 +23,7 @@ const paymasterId = process.env.PAYMASTER_ID;
 
 const chain = soneiumMinato;
 const publicClient = createPublicClient({ transport: http(), chain });
-const scsPaymasterClient = createSCSPaymasterClient({ transport: http(paymasterUrl) as any });
+const scsPaymasterClient = createSCSPaymasterClient({ transport: http(paymasterUrl)  });
 const signer = privateKeyToAccount(privateKey as Hex);
 const scsContext = { calculateGasLimits: true, paymasterId: paymasterId };
 

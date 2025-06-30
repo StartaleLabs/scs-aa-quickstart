@@ -37,7 +37,7 @@ const publicClient = createPublicClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl) as any
+  transport: http(paymasterUrl)
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -154,8 +154,8 @@ const main = async () => {
           client: publicClient,
           // WIP: to make it work with paymaster
           // Note: if account is already eip7702 paymaster would stil work rn.
-          paymaster: scsPaymasterClient as any,
-          paymasterContext: scsContext as any,
+          paymaster: scsPaymasterClient ,
+          paymasterContext: scsContext ,
       })
 
       const isDelegatedBefore = await smartAccountClient.account.isDelegated();

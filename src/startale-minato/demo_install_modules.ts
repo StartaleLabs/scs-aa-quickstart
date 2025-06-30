@@ -81,8 +81,8 @@ const main = async () => {
           transport: http(),
           index: BigInt(111787)
         }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any, // Must pass the client
+        transport: http(bundlerUrl) ,
+        client: publicClient , // Must pass the client
         paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
       })

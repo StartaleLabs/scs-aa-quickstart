@@ -19,7 +19,7 @@ const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 
 const chain = soneiumMinato;
 const publicClient = createPublicClient({ transport: http(), chain });
-const scsPaymasterClient = createSCSPaymasterClient({ transport: http(paymasterUrl) as any });
+const scsPaymasterClient = createSCSPaymasterClient({ transport: http(paymasterUrl)  });
 const signer = privateKeyToAccount(privateKey as Hex);
 
 // pm_test_managed_usage_limit : no of userops

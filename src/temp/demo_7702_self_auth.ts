@@ -37,7 +37,7 @@ const publicClient = createPublicClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl) as any
+  transport: http(paymasterUrl) 
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);

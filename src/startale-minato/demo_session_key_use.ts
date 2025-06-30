@@ -188,7 +188,7 @@ const main = async () => {
     console.log("parsedSessionData", parsedSessionData);
 
     const isEnabled = await isSessionEnabled({
-      client: smartAccountClient.account.client as any,
+      client: smartAccountClient.account.client ,
       account: {
         type: "erc7579-implementation",
         address: smartAccountClient.account.address,
@@ -215,7 +215,7 @@ const main = async () => {
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner as any,
+      signer: sessionOwner ,
       moduleData: parsedSessionData.moduleData
     })
 
