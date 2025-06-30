@@ -28,6 +28,7 @@ const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
+const paymasterId = process.env.PAYMASTER_ID;
 
 const guardian1Pk = process.env.SIGNER_1_PRIVATE_KEY;
 const guardian2Pk = process.env.SIGNER_2_PRIVATE_KEY;
@@ -55,7 +56,7 @@ const signer = privateKeyToAccount(privateKey as Hex);
 
 // Note: It is advised to always use calculateGasLimits true.
 // Grab the paymasterId from the paymaster dashboard.
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_test_self_funded" }
+const scsContext = { calculateGasLimits: true, paymasterId: paymasterId }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
