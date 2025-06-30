@@ -7,7 +7,6 @@ import {
   createPublicClient,
   encodeFunctionData,
   createWalletClient,
-  parseGwei,
   SignedAuthorizationList,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -152,8 +151,6 @@ const main = async () => {
           }),
           transport: http(bundlerUrl),
           client: publicClient,
-          // WIP: to make it work with paymaster
-          // Note: if account is already eip7702 paymaster would stil work rn.
           paymaster: scsPaymasterClient ,
           paymasterContext: scsContext ,
       })
