@@ -1,5 +1,5 @@
 {
-  "name": "aa-flow-demo",
+  "name": "@startale-scs/aa-quickstart",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
