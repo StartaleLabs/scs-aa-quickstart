@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "npx ts-node ./src/demo_simple.ts",
-    "kernel": "npx ts-node ./src/demo_kernel.ts"
+    "kernel": "npx ts-node ./src/demo_kernel.ts",
+    "rhinestone": "npx ts-node ./src/rhinestone/playground.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,6 +13,7 @@
   "description": "",
   "dependencies": {
     "@rhinestone/module-sdk": "^0.2.8",
+    "@rhinestone/sdk": "^0.12.7",
     "@startale-scs/aa-sdk": "^1.0.5",
     "chalk": "^5.4.1",
     "cli-progress": "^3.12.0",
@@ -24,7 +26,7 @@
     "solady": "^0.1.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
-    "viem": "^2.30.6"
+    "viem": "^2.31.7"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",
