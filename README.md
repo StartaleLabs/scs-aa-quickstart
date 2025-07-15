@@ -1,12 +1,21 @@
-##Startale scripts 
+# Startale scripts 
 
-###Steps to run
+## Steps to run
 
+1. Install dependencies
 
-1. npm i -f
-(or use --legacy-peer-deps)
+```sh
+npm install
+```
 
-2. put required values in .env
-Grab the values from the dashboard or example file.
+2. Fill in values from the dashboard or example file.
 
-3. Run scripts with ts-node src/starttale-minato/*
+```sh
+cp .env.example .env
+```
+
+3. Run script of your choice
+
+```sh
+npx ts-node src/startale-minato/<script>.ts
+```
