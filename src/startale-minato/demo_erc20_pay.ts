@@ -148,7 +148,7 @@ const main = async () => {
         ],
         feeTokenAddress: tokenAddress as Address,
         // You can either match by ASTR token address or use the one you know from response. 4th element in array in this case (Minato current supported tokens)
-        customApprovalAmount: BigInt(quotes.feeQuotes[3].requiredAmount)
+        customApprovalAmount: BigInt(quotes.feeQuotes[2].requiredAmount)
       })
       console.log("hash", hash);
 

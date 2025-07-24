@@ -24,6 +24,7 @@ const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
 const privateKey = process.env.OWNER_PRIVATE_KEY;
 const counterContract = process.env.COUNTER_CONTRACT_ADDRESS as Address;
 const implementationAddress = process.env.STARTALE_ACCOUNT_IMPLEMENTATION_ADDRESS as Address;
+const paymasterId = process.env.PAYMASTER_ID;
 
 if (!bundlerUrl || !paymasterUrl || !privateKey) {
   throw new Error("BUNDLER_RPC or PAYMASTER_SERVICE_URL or PRIVATE_KEY is not set");
@@ -43,7 +44,7 @@ const signer = privateKeyToAccount(privateKey as Hex);
 
 // Note: It is advised to always use calculateGasLimits true.
 // Grab the paymasterId from the paymaster dashboard.
-const scsContext = { calculateGasLimits: true, paymasterId: "pm_kHAk7Lw9KQibScJKyueNxv" }
+const scsContext = { calculateGasLimits: true, paymasterId: paymasterId }
 
 
 export const getAuthorizationListFromDirectAuths = (

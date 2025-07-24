@@ -215,7 +215,7 @@ const main = async () => {
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner as any,
+      signer: sessionOwner ,
       moduleData: parsedSessionData.moduleData
     })
 

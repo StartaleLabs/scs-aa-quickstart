@@ -35,7 +35,7 @@ const publicClient = createPublicClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl) as any
+  transport: http(paymasterUrl) 
 });
 
 
@@ -49,7 +49,7 @@ const entryPoint = {
 // Note: It is advised to always use calculateGasLimits true.
 
 // Grab the paymasterId from the paymaster dashboard.
-const scsContext = { calculateGasLimits: true, paymasterId: paymasterId }
+const scsContext = { calculateGasLimits: true, paymasterId: paymasterId /*Your paymasterId goes here. Grab it from dashboard*/ }
 
 const main = async () => {
     const spinner = ora({ spinner: "bouncingBar" });
