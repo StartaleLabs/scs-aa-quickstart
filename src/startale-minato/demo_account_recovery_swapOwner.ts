@@ -113,7 +113,7 @@ const main = async () => {
           signer: signer, 
           chain,
           transport: http(),
-          index: BigInt(19266899)
+          index: BigInt(19266827)
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any, // Must pass the client
@@ -168,7 +168,7 @@ const main = async () => {
 
       // This needs to be used in case we're swapping owner on default validator module.
       // Note: Deployed without isModuleInstalled check. as Smart account implementation does not return true for default validator module.
-      // socialRecovery.address = "0x09B28fA4C069de40225c08C4a80D362E172266b6";
+      socialRecovery.address = "0x09B28fA4C069de40225c08C4a80D362E172266b6";
 
       console.log("socialRecovery module address", socialRecovery.address);
 
@@ -223,8 +223,8 @@ const main = async () => {
 
 
       // This only needs to be used in case we're swapping owner on default validator module.
-      // socialRecovery.address = "0x09B28fA4C069de40225c08C4a80D362E172266b6";
-      // socialRecovery.module = "0x09B28fA4C069de40225c08C4a80D362E172266b6";
+      socialRecovery.address = "0x09B28fA4C069de40225c08C4a80D362E172266b6";
+      socialRecovery.module = "0x09B28fA4C069de40225c08C4a80D362E172266b6";
       // Otherwise default address from Rhinestone works
       smartAccountClient.account.setModule(socialRecovery as any);
 
@@ -362,7 +362,7 @@ const main = async () => {
     console.log("✅ UserOperation sent! Hash:", userOpHash);
 
     const receiptMined = await smartAccountClient.waitForUserOperationReceipt({ hash: userOpHash.result });
-    console.log("User operation receipt: ", receiptMined);
+    // console.log("User operation receipt: ", receiptMined);
 
     await new Promise(resolve => setTimeout(resolve, 5000));
 

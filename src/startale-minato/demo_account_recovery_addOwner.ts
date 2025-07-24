@@ -37,7 +37,6 @@ import { toSmartSessionsValidator } from "@startale-scs/aa-sdk";
 import type Table from "cli-table3";
 import CliTable from "cli-table3";
 import chalk from "chalk";
-import { ECDSAValidator } from "../abi/ECDSAValidator";
 import { OwnableValidatorAbi } from "../abi/OwnableValidator";
 
 
@@ -113,7 +112,7 @@ const main = async () => {
           signer: signer, 
           chain,
           transport: http(),
-          index: BigInt(19266898)
+          index: BigInt(19266819)
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any, // Must pass the client
@@ -362,7 +361,7 @@ const main = async () => {
     console.log("✅ UserOperation sent! Hash:", userOpHash);
 
     const receiptMined = await smartAccountClient.waitForUserOperationReceipt({ hash: userOpHash.result });
-    console.log("User operation receipt: ", receiptMined);
+    // console.log("User operation receipt: ", receiptMined);
 
     await new Promise(resolve => setTimeout(resolve, 5000));
 
