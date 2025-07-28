@@ -1,5 +1,5 @@
 import { createRhinestoneAccount } from '@rhinestone/sdk'
-import { getTokenAddress } from '@rhinestone/sdk/orchestrator'
+// import { getTokenAddress } from '@rhinestone/sdk/orchestrator'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia, arbitrumSepolia, optimismSepolia } from 'viem/chains'
 import {
@@ -31,7 +31,7 @@ async function main() {
   }
 
   const sourceChain = baseSepolia
-  const targetChain = arbitrumSepolia
+  const targetChain = optimismSepolia
 
   console.log('📋 Configuration:')
   console.log(`   Source Chain: ${sourceChain.name}`)
@@ -53,6 +53,9 @@ async function main() {
     owners: {
       type: 'ecdsa',
       accounts: [account],
+    },
+    account: {
+      type: 'startale',
     },
     rhinestoneApiKey,
   })
@@ -87,14 +90,16 @@ async function main() {
   // Step 3: Make a cross-chain token transfer
   console.log('🌉 Making cross-chain USDC transfer...')
   
-  const usdcTarget = getTokenAddress('USDC', targetChain.id)
+  // USDC token address for Arbitrum Sepolia testnet
+  const usdcTarget = '0x5fd84259d66Cd46123540766Be93DFE6D43130D7'
+  //const usdcTarget = getTokenAddress('USDC', targetChain.id)
   const usdcAmount = 1000000n
 
   console.log(`   Transferring ${usdcAmount} USDC to 0xd8da6bf26964af9d7eed9e03e53415d37aa96045`)
   console.log(`   Target USDC address: ${usdcTarget}`)
 
   const transaction = await rhinestoneAccount.sendTransaction({
-    sourceChain,
+    sourceChains: [sourceChain],
     targetChain,
     calls: [
       {
