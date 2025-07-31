@@ -50,7 +50,7 @@ const bundlerClient = createBundlerClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl),
+  transport: http(paymasterUrl) ,
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -82,13 +82,13 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
         account: await toStartaleSmartAccount({ 
-             signer: signer, 
-             chain,
-             transport: http(),
+             signer: signer , 
+             chain: chain ,
+             transport: http() ,
              index: BigInt(8941176)
         }),
-        transport: http(bundlerUrl),
-        client: publicClient,
+        transport: http(bundlerUrl) ,
+        client: publicClient ,
         paymaster: scsPaymasterClient,
         paymasterContext: scsContext,
       })
@@ -103,10 +103,14 @@ const main = async () => {
       // Create a smart sessions module for the user's account
       const sessionsModule = toSmartSessionsValidator({
         account: smartAccountClient.account,
-        signer: sessionOwner,
+        signer: sessionOwner ,
       })
+      // sessionsModule.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+      // sessionsModule.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
 
       const smartSessionsToInstall = getSmartSessionsValidator({})
+      // smartSessionsToInstall.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+      // smartSessionsToInstall.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
 
       const isInstalledBefore = await smartAccountClient.isModuleInstalled({
         module: sessionsModule
@@ -138,6 +142,9 @@ const main = async () => {
          sessionPublicKey: sessionOwner.address, // session key signer
          actionPoliciesInfo: [
            {
+            // only to use time range policy for this specific action.
+            //  validAfter: 0,
+            //  validUntil: 1753985767,
              contractAddress: counterContract, // counter address
              functionSelector: '0x06661abd' as Hex, // function selector for increment count
              // If rules are provided Universal Action policy is created and attached.
@@ -187,8 +194,9 @@ const main = async () => {
     const parsedSessionData = JSON.parse(cachedSessionData) as SessionData;
     console.log("parsedSessionData", parsedSessionData);
 
+    // Also imported from module-sdk
     const isEnabled = await isSessionEnabled({
-      client: smartAccountClient.account.client as any,
+      client: smartAccountClient.account.client,
       account: {
         type: "erc7579-implementation",
         address: smartAccountClient.account.address,
@@ -198,16 +206,15 @@ const main = async () => {
     })
     console.log("is session Enabled", isEnabled);
 
-
     const smartSessionAccountClient = createSmartAccountClient({
       account: await toStartaleSmartAccount({ 
-           signer: sessionOwner, 
+           signer: sessionOwner , 
            accountAddress: sessionData.granter,
-           chain: chain,
-           transport: http()
+           chain: chain ,
+           transport: http() 
       }),
-      transport: http(bundlerUrl),
-      client: publicClient,
+      transport: http(bundlerUrl) ,
+      client: publicClient ,
       mock: true,
       paymaster: scsPaymasterClient,
       paymasterContext: scsContext,
@@ -218,6 +225,8 @@ const main = async () => {
       signer: sessionOwner ,
       moduleData: parsedSessionData.moduleData
     })
+    // usePermissionsModule.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+    // usePermissionsModule.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
 
     const useSmartSessionAccountClient = smartSessionAccountClient.extend(
       smartSessionUseActions(usePermissionsModule)
@@ -253,6 +262,22 @@ const main = async () => {
       args: [smartAccountClient.account.address],
     })) as bigint;
     console.log("counterStateAfter", counterStateAfter);
+
+    // const permissionIdToRevoke = parsedSessionData.moduleData.permissionIds[0];
+    // console.log("permissionIdToRevoke", permissionIdToRevoke);
+
+    // Can revoke the session now. Available in sdk version ^1.0.7
+
+    // const revokePermissionHash = await startaleAccountSessionClient.revokeSession({
+    //   permissionId: permissionIdToRevoke
+    // })
+    // console.log("revokePermissionHash", revokePermissionHash);
+
+    // const resultOfRevokedSession = await bundlerClient.waitForUserOperationReceipt({
+    //   hash: revokePermissionHash.userOpHash,
+    // });
+    // console.log("Operation result: ", resultOfRevokedSession.receipt.transactionHash);
+    // spinner.succeed(chalk.greenBright.bold.underline("Session revoked successfully"));
 
     } catch (error) {
       spinner.fail(chalk.red(`Error: ${(error as Error).message}`));  
