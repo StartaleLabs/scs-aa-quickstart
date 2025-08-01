@@ -10,10 +10,11 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { soneiumMinato } from "viem/chains";
 import { Counter as CounterAbi } from "../abi/Counter";
-import { createSCSPaymasterClient, createSmartAccountClient, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
+import { createSCSPaymasterClient, createSmartAccountClient, toOwnableModule, toStartaleSmartAccount } from "@startale-scs/aa-sdk";
 
 import cliTable = require("cli-table3");
 import chalk from "chalk";
+import { getOwnableValidator } from "@rhinestone/module-sdk";
 
 const bundlerUrl = process.env.MINATO_BUNDLER_URL;
 const paymasterUrl = process.env.PAYMASTER_SERVICE_URL;
@@ -32,7 +33,7 @@ const publicClient = createPublicClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl) 
+  transport: http(paymasterUrl) as any 
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -57,15 +58,22 @@ const main = async () => {
       const eoaAddress = signer.address;
       console.log("eoaAddress", eoaAddress); 
 
+      const ownable = toOwnableModule({
+        signer: signer as any,
+        threshold: 1,
+        owners: [eoaAddress],
+      })
+
       const smartAccountClient = createSmartAccountClient({
           account: await toStartaleSmartAccount({ 
-               signer: signer, 
-               chain: chain,
-               transport: http(),
-               index: BigInt(2132)
+               signer: signer as any, 
+               chain: chain as any,
+               transport: http() as any,
+               validators: [ownable],
+               index: BigInt(2133)
           }),
-          transport: http(bundlerUrl),
-          client: publicClient,
+          transport: http(bundlerUrl) as any,
+          client: publicClient as any,
           paymaster: scsPaymasterClient,
           paymasterContext: scsContext,
       })
