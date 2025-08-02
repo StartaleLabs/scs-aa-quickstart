@@ -50,7 +50,7 @@ const bundlerClient = createBundlerClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl) ,
+  transport: http(paymasterUrl) as any,
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -82,15 +82,15 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
         account: await toStartaleSmartAccount({ 
-             signer: signer , 
-             chain: chain ,
-             transport: http() ,
-             index: BigInt(8941176)
+             signer: signer as any, 
+             chain: chain as any,
+             transport: http() as any,
+             index: BigInt(102067)
         }),
-        transport: http(bundlerUrl) ,
-        client: publicClient ,
-        paymaster: scsPaymasterClient,
-        paymasterContext: scsContext,
+        transport: http(bundlerUrl) as any,
+        client: publicClient as any,
+        paymaster: scsPaymasterClient as any,
+        paymasterContext: scsContext as any,
       })
 
       const address = await smartAccountClient.account.getAddress();
@@ -103,14 +103,14 @@ const main = async () => {
       // Create a smart sessions module for the user's account
       const sessionsModule = toSmartSessionsValidator({
         account: smartAccountClient.account,
-        signer: sessionOwner ,
+        signer: sessionOwner as any,
       })
-      // sessionsModule.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
-      // sessionsModule.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+      sessionsModule.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
+      sessionsModule.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
 
       const smartSessionsToInstall = getSmartSessionsValidator({})
-      // smartSessionsToInstall.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
-      // smartSessionsToInstall.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+      smartSessionsToInstall.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
+      smartSessionsToInstall.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
 
       const isInstalledBefore = await smartAccountClient.isModuleInstalled({
         module: sessionsModule
@@ -140,11 +140,13 @@ const main = async () => {
       const sessionRequestedInfo: CreateSessionDataParams[] = [
         {
          sessionPublicKey: sessionOwner.address, // session key signer
+        //  sessionValidAfter: 0,
+        //  sessionValidUntil: 1754166522,
          actionPoliciesInfo: [
            {
             // only to use time range policy for this specific action.
-            //  validAfter: 0,
-            //  validUntil: 1753985767,
+             validAfter: 0,
+             validUntil: 1754166522000,
              contractAddress: counterContract, // counter address
              functionSelector: '0x06661abd' as Hex, // function selector for increment count
              // If rules are provided Universal Action policy is created and attached.
@@ -196,7 +198,7 @@ const main = async () => {
 
     // Also imported from module-sdk
     const isEnabled = await isSessionEnabled({
-      client: smartAccountClient.account.client,
+      client: smartAccountClient.account.client as any,
       account: {
         type: "erc7579-implementation",
         address: smartAccountClient.account.address,
@@ -208,25 +210,25 @@ const main = async () => {
 
     const smartSessionAccountClient = createSmartAccountClient({
       account: await toStartaleSmartAccount({ 
-           signer: sessionOwner , 
+           signer: sessionOwner as any, 
            accountAddress: sessionData.granter,
-           chain: chain ,
-           transport: http() 
+           chain: chain as any,
+           transport: http() as any
       }),
-      transport: http(bundlerUrl) ,
-      client: publicClient ,
+      transport: http(bundlerUrl) as any,
+      client: publicClient as any,
       mock: true,
-      paymaster: scsPaymasterClient,
-      paymasterContext: scsContext,
+      paymaster: scsPaymasterClient as any,
+      paymasterContext: scsContext as any,
     })
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner ,
+      signer: sessionOwner as any,
       moduleData: parsedSessionData.moduleData
     })
-    // usePermissionsModule.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
-    // usePermissionsModule.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+    usePermissionsModule.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
+    usePermissionsModule.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
 
     const useSmartSessionAccountClient = smartSessionAccountClient.extend(
       smartSessionUseActions(usePermissionsModule)
@@ -286,3 +288,8 @@ const main = async () => {
 }
 
 main();
+
+// Check later
+// https://soneium-minato.blockscout.com/tx/0x45360b78841d415fe9de8fbedea85399387354dc2dd4152947fb53de8b1a15e3?tab=logs
+
+
