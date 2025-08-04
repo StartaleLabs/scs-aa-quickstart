@@ -7,7 +7,6 @@ import {
   createPublicClient,
   encodeFunctionData,
   stringify,
-  PublicClient,
 } from "viem";
 import {
   type EntryPointVersion,
@@ -23,7 +22,6 @@ import { getSmartSessionsValidator, SmartSessionMode } from "@rhinestone/module-
 import { isSessionEnabled } from "@rhinestone/module-sdk";
 import { toSmartSessionsValidator } from "@startale-scs/aa-sdk";
 
-import type Table from "cli-table3";
 import CliTable from "cli-table3";
 import chalk from "chalk";
 
@@ -50,7 +48,7 @@ const bundlerClient = createBundlerClient({
 });
 
 const scsPaymasterClient = createSCSPaymasterClient({
-  transport: http(paymasterUrl) as any,
+  transport: http(paymasterUrl),
 });
 
 const signer = privateKeyToAccount(privateKey as Hex);
@@ -72,6 +70,7 @@ const main = async () => {
       wordWrap: true,
       wrapOnWordBoundary: false,
     };
+
   
     try {
       // spinner.start("Initializing smart account...");
@@ -82,15 +81,15 @@ const main = async () => {
 
       const smartAccountClient = createSmartAccountClient({
         account: await toStartaleSmartAccount({ 
-             signer: signer as any, 
-             chain: chain as any,
-             transport: http() as any,
-             index: BigInt(102067)
+             signer: signer , 
+             chain: chain ,
+             transport: http() ,
+             index: BigInt(10280)
         }),
-        transport: http(bundlerUrl) as any,
-        client: publicClient as any,
-        paymaster: scsPaymasterClient as any,
-        paymasterContext: scsContext as any,
+        transport: http(bundlerUrl) ,
+        client: publicClient ,
+        paymaster: scsPaymasterClient ,
+        paymasterContext: scsContext ,
       })
 
       const address = await smartAccountClient.account.getAddress();
@@ -103,7 +102,7 @@ const main = async () => {
       // Create a smart sessions module for the user's account
       const sessionsModule = toSmartSessionsValidator({
         account: smartAccountClient.account,
-        signer: sessionOwner as any,
+        signer: sessionOwner ,
       })
       sessionsModule.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
       sessionsModule.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
@@ -140,13 +139,13 @@ const main = async () => {
       const sessionRequestedInfo: CreateSessionDataParams[] = [
         {
          sessionPublicKey: sessionOwner.address, // session key signer
-        //  sessionValidAfter: 0,
-        //  sessionValidUntil: 1754166522,
+         sessionValidAfter: 0,
+         sessionValidUntil: 1756480639, // late August
          actionPoliciesInfo: [
            {
             // only to use time range policy for this specific action.
              validAfter: 0,
-             validUntil: 1754166522000,
+             validUntil: 1756480639, // late August
              contractAddress: counterContract, // counter address
              functionSelector: '0x06661abd' as Hex, // function selector for increment count
              // If rules are provided Universal Action policy is created and attached.
@@ -198,7 +197,7 @@ const main = async () => {
 
     // Also imported from module-sdk
     const isEnabled = await isSessionEnabled({
-      client: smartAccountClient.account.client as any,
+      client: smartAccountClient.account.client ,
       account: {
         type: "erc7579-implementation",
         address: smartAccountClient.account.address,
@@ -210,21 +209,21 @@ const main = async () => {
 
     const smartSessionAccountClient = createSmartAccountClient({
       account: await toStartaleSmartAccount({ 
-           signer: sessionOwner as any, 
+           signer: sessionOwner , 
            accountAddress: sessionData.granter,
-           chain: chain as any,
-           transport: http() as any
+           chain: chain ,
+           transport: http() 
       }),
-      transport: http(bundlerUrl) as any,
-      client: publicClient as any,
+      transport: http(bundlerUrl) ,
+      client: publicClient ,
       mock: true,
-      paymaster: scsPaymasterClient as any,
-      paymasterContext: scsContext as any,
+      paymaster: scsPaymasterClient ,
+      paymasterContext: scsContext ,
     })
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner as any,
+      signer: sessionOwner ,
       moduleData: parsedSessionData.moduleData
     })
     usePermissionsModule.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
@@ -249,6 +248,8 @@ const main = async () => {
       ]
     })
     console.log("userOpHash", userOpHash);
+
+    // You should either get AA22 expired not due OR it works successfully based on validUntil expiries.
 
     const resultOfUsedSession = await bundlerClient.waitForUserOperationReceipt({
       hash: userOpHash,
@@ -288,8 +289,5 @@ const main = async () => {
 }
 
 main();
-
-// Check later
-// https://soneium-minato.blockscout.com/tx/0x45360b78841d415fe9de8fbedea85399387354dc2dd4152947fb53de8b1a15e3?tab=logs
 
 
