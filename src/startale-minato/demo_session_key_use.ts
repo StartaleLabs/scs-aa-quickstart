@@ -77,14 +77,14 @@ const main = async () => {
       const tableBefore = new CliTable(tableConfig);
 
       const eoaAddress = signer.address;
-      console.log("eoaAddress", eoaAddress); 
+      console.log("eoaAddress", eoaAddress);
 
       const smartAccountClient = createSmartAccountClient({
         account: await toStartaleSmartAccount({ 
              signer: signer , 
              chain: chain ,
              transport: http() ,
-             index: BigInt(10280)
+             index: BigInt(10299)
         }),
         transport: http(bundlerUrl) ,
         client: publicClient ,
@@ -102,14 +102,14 @@ const main = async () => {
       // Create a smart sessions module for the user's account
       const sessionsModule = toSmartSessionsValidator({
         account: smartAccountClient.account,
-        signer: sessionOwner ,
+        signer: sessionOwner,
       })
-      sessionsModule.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
-      sessionsModule.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
+      sessionsModule.address = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
+      sessionsModule.module = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
 
       const smartSessionsToInstall = getSmartSessionsValidator({})
-      smartSessionsToInstall.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
-      smartSessionsToInstall.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
+      smartSessionsToInstall.address = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
+      smartSessionsToInstall.module = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
 
       const isInstalledBefore = await smartAccountClient.isModuleInstalled({
         module: sessionsModule
@@ -223,11 +223,11 @@ const main = async () => {
 
     const usePermissionsModule = toSmartSessionsValidator({
       account: smartSessionAccountClient.account,
-      signer: sessionOwner ,
+      signer: sessionOwner,
       moduleData: parsedSessionData.moduleData
     })
-    usePermissionsModule.address = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
-    usePermissionsModule.module = "0x2358e7436B2bC3F8a82B4F128236a7AF1b32f23c"
+    usePermissionsModule.address = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
+    usePermissionsModule.module = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
 
     const useSmartSessionAccountClient = smartSessionAccountClient.extend(
       smartSessionUseActions(usePermissionsModule)

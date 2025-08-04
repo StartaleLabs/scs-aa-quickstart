@@ -85,7 +85,7 @@ const main = async () => {
              signer: signer as any, 
              chain: chain as any,
              transport: http() as any,
-             index: BigInt(89411788)
+             index: BigInt(894117881)
         }),
         transport: http(bundlerUrl) as any,
         client: publicClient as any,
@@ -106,14 +106,14 @@ const main = async () => {
         signer: sessionOwner as any,
       })
       // V1 address override for testing
-      // sessionsModule.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
-      // sessionsModule.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+      sessionsModule.address = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
+      sessionsModule.module = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
 
       // Imported from @rhinestone/module-sdk. If we were to update the address, we can export this from startale-scs/aa-sdk
       const smartSessionsToInstall = getSmartSessionsValidator({})
       // V1 address override for testing
-      // smartSessionsToInstall.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
-      // smartSessionsToInstall.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+      smartSessionsToInstall.address = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
+      smartSessionsToInstall.module = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
 
       const isInstalledBefore = await smartAccountClient.isModuleInstalled({
         module: sessionsModule
@@ -143,7 +143,7 @@ const main = async () => {
       const sessionRequestedInfo: CreateSessionDataParams[] = [
         {
          sessionPublicKey: sessionOwner.address, // session key signer
-         sessionValidUntil: 1753705571,
+         // sessionValidUntil: 1753705571,
          actionPoliciesInfo: [
            {
              contractAddress: erc20TokenContract, // ASTR minato address
@@ -247,8 +247,8 @@ const main = async () => {
       moduleData: parsedSessionData.moduleData
     })
     // V1 address override for testing
-    // usePermissionsModule.address = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
-    // usePermissionsModule.module = "0x0000000000b1c0591b3b3bdadd1e37c8903bd962"
+    usePermissionsModule.address = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
+    usePermissionsModule.module = "0x00000000008bDABA73cD9815d79069c247Eb4bDA"
 
     const useSmartSessionAccountClient = smartSessionAccountClient.extend(
       smartSessionUseActions(usePermissionsModule)
