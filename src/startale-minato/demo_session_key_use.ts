@@ -197,7 +197,7 @@ const main = async () => {
 
     // Also imported from module-sdk
     const isEnabled = await isSessionEnabled({
-      client: smartAccountClient.account.client ,
+      client: smartAccountClient.account.client as any,
       account: {
         type: "erc7579-implementation",
         address: smartAccountClient.account.address,
